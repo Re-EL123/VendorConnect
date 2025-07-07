@@ -12,7 +12,15 @@
 <body class="bg-gray-100 text-gray-900">
   <div class="max-w-5xl mx-auto py-10 px-4">
     <h1 class="text-4xl font-bold text-center mb-10">Admin Dashboard</h1>
-    <div id="vendorList" class="space-y-6"></div>
+    <div id="loginContainer" class="max-w-md mx-auto bg-white p-6 rounded shadow">
+      <h2 class="text-2xl font-semibold mb-4">Admin Login</h2>
+      <form id="loginForm" class="space-y-4">
+        <input type="email" id="adminEmail" placeholder="Admin Email" class="w-full p-3 border rounded" required>
+        <input type="password" id="adminPassword" placeholder="Password" class="w-full p-3 border rounded" required>
+        <button type="submit" class="w-full bg-green-600 text-white p-3 rounded hover:bg-green-700">Login</button>
+      </form>
+    </div>
+    <div id="vendorList" class="space-y-6 hidden"></div>
   </div>
 
   <script>
@@ -29,6 +37,30 @@
 
     firebase.initializeApp(firebaseConfig);
     const db = firebase.firestore();
+    const auth = firebase.auth();
+
+    const ADMIN_UIDS = ["adminUID1", "adminUID2"];
+
+    document.getElementById("loginForm").addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const email = document.getElementById("adminEmail").value;
+      const password = document.getElementById("adminPassword").value;
+
+      try {
+        const userCredential = await auth.signInWithEmailAndPassword(email, password);
+        const uid = userCredential.user.uid;
+        if (!ADMIN_UIDS.includes(uid)) {
+          alert("Access denied. Not an authorized admin.");
+          auth.signOut();
+        } else {
+          document.getElementById("loginContainer").classList.add("hidden");
+          document.getElementById("vendorList").classList.remove("hidden");
+          loadVendors();
+        }
+      } catch (error) {
+        alert("Login failed: " + error.message);
+      }
+    });
 
     async function loadVendors() {
       const vendorList = document.getElementById("vendorList");
@@ -39,6 +71,9 @@
 
       for (const doc of querySnapshot.docs) {
         const data = doc.data();
+        const subSnap = await db.collection("subscriptions").doc(data.uid).get();
+        const subData = subSnap.exists ? subSnap.data() : {};
+
         const vendorCard = document.createElement("div");
         vendorCard.className = "bg-white p-4 rounded shadow";
         vendorCard.innerHTML = `
@@ -49,8 +84,9 @@
           <p class="text-sm text-gray-600 mb-2">${data.description}</p>
           <p class="text-sm mb-2">📞 ${data.phone} | ✉️ ${data.email}</p>
           <p class="text-sm mb-2">Approval: ${data.isApproved ? '✅ Approved' : '⏳ Pending'}</p>
-          <p class="text-sm mb-4">Subscription: ${data.subscriptionStatus}</p>
-          <div class="flex space-x-2">
+          <p class="text-sm mb-2">Subscription: ${data.subscriptionStatus}</p>
+          ${subData.paymentProofURL ? `<a href="${subData.paymentProofURL}" target="_blank" class="text-blue-600 text-sm underline mb-2 inline-block">View Payment Proof</a>` : '<p class="text-sm text-gray-400">No payment proof uploaded.</p>'}
+          <div class="flex space-x-2 mt-2">
             <button onclick="approveVendor('${data.uid}')" class="bg-green-600 text-white px-4 py-2 rounded">Approve</button>
             <button onclick="rejectVendor('${data.uid}')" class="bg-red-600 text-white px-4 py-2 rounded">Reject</button>
           </div>
@@ -76,8 +112,6 @@
       alert("Vendor rejected.");
       loadVendors();
     }
-
-    loadVendors();
   </script>
 </body>
 </html>
