@@ -16,6 +16,7 @@
     <h1 class="text-3xl font-bold mb-6 text-center">Vendor Dashboard</h1>
     
     <div id="status" class="mb-4 text-center text-sm text-gray-600"></div>
+    <div id="paymentProofInfo" class="mb-4 text-center text-sm text-blue-600"></div>
 
     <form id="updateForm" class="space-y-4">
       <input type="text" id="name" placeholder="Business Name" class="w-full p-3 border rounded" required>
@@ -23,6 +24,9 @@
       <input type="text" id="category" placeholder="Category" class="w-full p-3 border rounded" required>
       <textarea id="description" placeholder="Business Description" class="w-full p-3 border rounded" rows="4" required></textarea>
       <input type="file" id="profileImage" accept="image/*" class="w-full p-3 border rounded bg-gray-50">
+
+      <label class="block font-semibold text-sm mt-4">Re-upload Payment Proof (if needed)</label>
+      <input type="file" id="paymentProof" accept="image/*" class="w-full p-3 border rounded bg-gray-50">
 
       <button type="submit" class="bg-green-600 text-white w-full p-3 rounded font-semibold hover:bg-green-700 transition">Update Profile</button>
     </form>
@@ -60,39 +64,46 @@
 
       currentVendorId = user.uid;
 
-      const doc = await db.collection("vendors").doc(currentVendorId).get();
-      if (!doc.exists) {
+      const vendorDoc = await db.collection("vendors").doc(currentVendorId).get();
+      const subDoc = await db.collection("subscriptions").doc(currentVendorId).get();
+
+      if (!vendorDoc.exists) {
         alert("Vendor profile not found.");
         return;
       }
 
-      const data = doc.data();
+      const data = vendorDoc.data();
 
       document.getElementById("name").value = data.name || "";
       document.getElementById("phone").value = data.phone || "";
       document.getElementById("category").value = data.category || "";
       document.getElementById("description").value = data.description || "";
+
       document.getElementById("status").innerText = `Approval: ${data.isApproved ? '✅ Approved' : '⏳ Pending'} | Subscription: ${data.subscriptionStatus}`;
+
+      if (subDoc.exists) {
+        const subData = subDoc.data();
+        if (subData.paymentProofURL) {
+          document.getElementById("paymentProofInfo").innerHTML =
+            `🧾 Payment proof uploaded. <a href="${subData.paymentProofURL}" target="_blank" class="underline text-blue-700">View</a>`;
+        } else {
+          document.getElementById("paymentProofInfo").innerText =
+            "No payment proof uploaded yet. Please upload below if required.";
+        }
+      }
     });
 
     document.getElementById("updateForm").addEventListener("submit", async (e) => {
       e.preventDefault();
 
-      const name = document.getElementById("name").value;
-      const phone = document.getElementById("phone").value;
-      const category = document.getElementById("category").value;
-      const description = document.getElementById("description").value;
+      const name = document.getElementById("name").value.trim();
+      const phone = document.getElementById("phone").value.trim();
+      const category = document.getElementById("category").value.trim();
+      const description = document.getElementById("description").value.trim();
       const profileImage = document.getElementById("profileImage").files[0];
+      const paymentProof = document.getElementById("paymentProof").files[0];
 
-      let imageURL = "";
-
-      if (profileImage) {
-        const imageRef = storage.ref().child(`vendors/${currentVendorId}/profile.jpg`);
-        await imageRef.put(profileImage);
-        imageURL = await imageRef.getDownloadURL();
-      }
-
-      const updateData = {
+      let updates = {
         name,
         phone,
         category,
@@ -100,9 +111,26 @@
         updatedAt: firebase.firestore.FieldValue.serverTimestamp()
       };
 
-      if (imageURL) updateData.imageURL = imageURL;
+      // Upload profile image
+      if (profileImage) {
+        const imageRef = storage.ref(`vendors/${currentVendorId}/profile.jpg`);
+        await imageRef.put(profileImage);
+        updates.imageURL = await imageRef.getDownloadURL();
+      }
 
-      await db.collection("vendors").doc(currentVendorId).update(updateData);
+      await db.collection("vendors").doc(currentVendorId).update(updates);
+
+      // Upload payment proof if provided
+      if (paymentProof) {
+        const proofRef = storage.ref(`vendors/${currentVendorId}/subscription/payment_proof.jpg`);
+        await proofRef.put(paymentProof);
+        const proofURL = await proofRef.getDownloadURL();
+        await db.collection("subscriptions").doc(currentVendorId).update({
+          paymentProofURL: proofURL,
+          status: "pending",
+          updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+        });
+      }
 
       alert("Profile updated successfully.");
       location.reload();
