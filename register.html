@@ -22,16 +22,20 @@
       <input type="text" id="phone" placeholder="Phone Number (WhatsApp)" class="w-full p-3 border rounded" required>
       <input type="text" id="category" placeholder="Business Category (e.g. Food, Fashion)" class="w-full p-3 border rounded" required>
       <textarea id="description" placeholder="Short Business Description" class="w-full p-3 border rounded" rows="3" required></textarea>
+
+      <label class="block mt-4 text-sm font-medium">Profile Image</label>
       <input type="file" id="profileImage" accept="image/*" class="w-full p-3 border rounded bg-gray-50">
+
+      <label class="block mt-4 text-sm font-medium">Upload Proof of Payment (optional)</label>
+      <input type="file" id="paymentProof" accept="image/*" class="w-full p-3 border rounded bg-gray-50">
 
       <button type="submit" class="bg-green-600 text-white w-full p-3 rounded font-semibold hover:bg-green-700">Register</button>
     </form>
 
-    <p class="text-center mt-4 text-sm text-gray-600">Already have an account? <a href="#" class="text-green-600 font-semibold">Login</a></p>
+    <p class="text-center mt-4 text-sm text-gray-600">Already have an account? <a href="index.html" class="text-green-600 font-semibold">Login</a></p>
   </div>
 
   <script>
-    // Firebase config
     const firebaseConfig = {
       apiKey: "AIzaSyDEsYzVYNvSsKvgFk5cSa_7lWWdJtDc1gs",
       authDomain: "online-mall-4422.firebaseapp.com",
@@ -43,37 +47,41 @@
       measurementId: "G-LNTNZQBGL8"
     };
 
-    // Initialize Firebase
     firebase.initializeApp(firebaseConfig);
     const auth = firebase.auth();
     const db = firebase.firestore();
     const storage = firebase.storage();
 
-    // Handle form submission
     document.getElementById("registerForm").addEventListener("submit", async (e) => {
       e.preventDefault();
 
-      const name = document.getElementById("name").value;
-      const email = document.getElementById("email").value;
+      const name = document.getElementById("name").value.trim();
+      const email = document.getElementById("email").value.trim();
       const password = document.getElementById("password").value;
-      const phone = document.getElementById("phone").value;
-      const category = document.getElementById("category").value;
-      const description = document.getElementById("description").value;
+      const phone = document.getElementById("phone").value.trim();
+      const category = document.getElementById("category").value.trim();
+      const description = document.getElementById("description").value.trim();
       const profileImage = document.getElementById("profileImage").files[0];
+      const paymentProof = document.getElementById("paymentProof").files[0];
 
       try {
-        // Register user
         const userCredential = await auth.createUserWithEmailAndPassword(email, password);
         const uid = userCredential.user.uid;
 
-        let imageURL = "";
+        let imageURL = "", proofURL = "";
+
         if (profileImage) {
-          const imageRef = storage.ref().child(`vendors/${uid}/profile.jpg`);
-          await imageRef.put(profileImage);
-          imageURL = await imageRef.getDownloadURL();
+          const imgRef = storage.ref().child(`vendors/${uid}/profile.jpg`);
+          await imgRef.put(profileImage);
+          imageURL = await imgRef.getDownloadURL();
         }
 
-        // Save to Firestore
+        if (paymentProof) {
+          const proofRef = storage.ref().child(`vendors/${uid}/subscription/payment_proof.jpg`);
+          await proofRef.put(paymentProof);
+          proofURL = await proofRef.getDownloadURL();
+        }
+
         await db.collection("vendors").doc(uid).set({
           uid,
           name,
@@ -87,11 +95,18 @@
           createdAt: firebase.firestore.FieldValue.serverTimestamp()
         });
 
-        alert("Registration successful! Your profile will be reviewed by admin.");
+        await db.collection("subscriptions").doc(uid).set({
+          plan: "basic",
+          status: "pending",
+          paymentProofURL: proofURL || "",
+          createdAt: firebase.firestore.FieldValue.serverTimestamp()
+        });
+
+        alert("Registration successful! Please wait for admin approval.");
         window.location.href = "index.html";
 
       } catch (error) {
-        console.error("Error:", error.message);
+        console.error(error);
         alert("Registration failed: " + error.message);
       }
     });
