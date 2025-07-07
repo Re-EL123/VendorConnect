@@ -1,73 +1,75 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="="en">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>StreetLink – Empowering Street Vendors</title>
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/tailwindcss/2.2.19/tailwind.min.css"/>
+  <title>Street Link – Empowering Street Vendors</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css"/>
+  <link rel="icon" href="favicon.ico" />
 </head>
-<body class="bg-gray-100 text-gray-900">
+<body class="bg-gray-50 text-gray-900">
 
-  <!-- Header / Hero -->
-  <header class="bg-green-600 text-white">
-    <div class="container mx-auto px-4 py-8 text-center">
-      <h1 class="text-4xl font-bold mb-4">StreetLink</h1>
-      <p class="text-lg">Bringing Street Vendors to Your Screen. Find. Connect. Support Local Hustle.</p>
-      <a href="#get-started" class="mt-6 inline-block bg-white text-green-600 font-semibold px-6 py-3 rounded-full hover:bg-gray-200">Get Started</a>
-    </div>
+  <!-- Hero Section -->
+  <header class="bg-green-600 text-white py-16 text-center">
+    <h1 class="text-5xl font-bold mb-4">Street Link</h1>
+    <p class="text-lg mb-6">Digitally empowering local street vendors to reach more customers.</p>
+    <a href="register.html" class="bg-white text-green-700 px-6 py-3 font-semibold rounded-full shadow hover:bg-gray-200 transition">Join as a Vendor</a>
   </header>
 
   <!-- Features Section -->
-  <section class="container mx-auto px-4 py-12">
-    <h2 class="text-3xl font-bold mb-6 text-center">Why StreetLink?</h2>
+  <section class="container mx-auto px-4 py-16">
+    <h2 class="text-3xl font-bold text-center mb-10">What Street Link Offers</h2>
     <div class="grid md:grid-cols-3 gap-8">
-      <div class="bg-white p-6 rounded shadow">
-        <h3 class="font-semibold text-xl mb-2">📍 Vendor Discovery</h3>
-        <p>Find nearby vendors with real-time GPS location pins and business profiles.</p>
+      <div class="bg-white p-6 rounded-lg shadow">
+        <h3 class="text-xl font-semibold mb-2">📍 Location-Based Discovery</h3>
+        <p>Vendors are pinned on a map, making it easy for customers to discover local businesses around them.</p>
       </div>
-      <div class="bg-white p-6 rounded shadow">
-        <h3 class="font-semibold text-xl mb-2">📸 Business Profiles</h3>
-        <p>Vendors can showcase products with images, descriptions, and daily posts or specials.</p>
+      <div class="bg-white p-6 rounded-lg shadow">
+        <h3 class="text-xl font-semibold mb-2">📸 Self-Upload Business Profiles</h3>
+        <p>Street vendors can upload their own business details, images, and daily specials in real-time.</p>
       </div>
-      <div class="bg-white p-6 rounded shadow">
-        <h3 class="font-semibold text-xl mb-2">💬 Direct Contact</h3>
-        <p>Message vendors directly or connect via WhatsApp for fast orders and inquiries.</p>
+      <div class="bg-white p-6 rounded-lg shadow">
+        <h3 class="text-xl font-semibold mb-2">🛡️ Admin Verification & Subscription</h3>
+        <p>Only approved and subscribed vendors appear to the public, ensuring quality and trust.</p>
       </div>
     </div>
   </section>
 
-  <!-- Vendor Benefits -->
-  <section class="bg-gray-200 py-12">
-    <div class="container mx-auto px-4">
-      <h2 class="text-3xl font-bold mb-6 text-center">For Street Vendors</h2>
-      <ul class="space-y-4 text-lg">
-        <li>✅ Get discovered by new customers nearby</li>
-        <li>✅ Share daily specials and new products easily</li>
-        <li>✅ Get featured for more visibility</li>
-        <li>✅ Grow your business with digital tools</li>
-      </ul>
+  <!-- App Preview -->
+  <section class="bg-gray-100 py-16">
+    <div class="container mx-auto px-4 text-center">
+      <h2 class="text-3xl font-bold mb-6">App Preview</h2>
+      <img src="assets/app-screenshot.png" alt="Street Link App Screenshot" class="mx-auto rounded-lg shadow-lg w-3/4 md:w-1/2" />
     </div>
   </section>
 
-  <!-- Screenshots / Image Section (You can replace placeholder) -->
-  <section class="container mx-auto px-4 py-12">
-    <h2 class="text-3xl font-bold mb-6 text-center">App Preview</h2>
-    <div class="flex justify-center">
-      <img src="assets/app-screenshot.png" alt="App Screenshot" class="rounded shadow-lg w-3/4 md:w-1/2">
+  <!-- For Vendors -->
+  <section class="container mx-auto px-4 py-16">
+    <h2 class="text-3xl font-bold text-center mb-8">Why Join as a Vendor?</h2>
+    <div class="grid md:grid-cols-2 gap-6 text-lg">
+      <div>✅ Get discovered by customers nearby</div>
+      <div>✅ Upload and manage your own business profile</div>
+      <div>✅ Post daily specials or new stock</div>
+      <div>✅ Get approved and featured by our admin team</div>
+      <div>✅ Affordable subscription plans</div>
+      <div>✅ Boost your sales and grow your reach</div>
+    </div>
+    <div class="text-center mt-10">
+      <a href="register.html" class="bg-green-600 text-white px-8 py-3 rounded-full text-lg font-semibold hover:bg-green-700 transition">Register Your Business</a>
     </div>
   </section>
 
   <!-- Call to Action -->
-  <section id="get-started" class="bg-green-600 text-white text-center py-12">
-    <h2 class="text-3xl font-bold mb-4">Ready to Join the Local Hustle?</h2>
-    <p class="mb-6">Download the app or sign up today to get your business listed!</p>
-    <a href="#" class="bg-white text-green-600 font-semibold px-6 py-3 rounded-full hover:bg-gray-200">Get the App</a>
+  <section class="bg-green-600 text-white py-12 text-center">
+    <h2 class="text-3xl font-bold mb-4">Support Local. Go Digital.</h2>
+    <p class="mb-6">Street Link connects real hustle to real customers. Start now.</p>
+    <a href="register.html" class="bg-white text-green-700 px-6 py-3 font-semibold rounded-full hover:bg-gray-200 transition">Become a Vendor</a>
   </section>
 
   <!-- Footer -->
-  <footer class="bg-gray-800 text-gray-300 text-center py-6">
-    <p>&copy; 2025 StreetLink. All rights reserved.</p>
-    <p>Developed by [Your Name]</p>
+  <footer class="bg-gray-800 text-gray-300 text-center py-6 text-sm">
+    <p>&copy; 2025 Street Link. All rights reserved.</p>
+    <p>Developed by Akani Shibiri</p>
   </footer>
 
 </body>
