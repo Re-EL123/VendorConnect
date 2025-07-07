@@ -15,7 +15,9 @@
   <div class="max-w-xl mx-auto mt-10 bg-white p-8 rounded shadow">
     <h1 class="text-3xl font-bold mb-6 text-center">Create a New Post</h1>
 
-    <form id="postForm" class="space-y-4">
+    <div id="postAccessStatus" class="text-center text-sm text-red-600 mb-4"></div>
+
+    <form id="postForm" class="space-y-4 hidden">
       <input type="file" id="postImage" accept="image/*" class="w-full p-3 border rounded bg-gray-50" required>
       <textarea id="caption" placeholder="Write a caption or describe your post..." class="w-full p-3 border rounded" rows="4" required></textarea>
       <button type="submit" class="bg-green-600 text-white w-full p-3 rounded font-semibold hover:bg-green-700 transition">Upload Post</button>
@@ -45,12 +47,32 @@
 
     let currentVendorId = "";
 
-    auth.onAuthStateChanged(user => {
+    auth.onAuthStateChanged(async user => {
       if (!user) {
         alert("You must be logged in to post.");
         window.location.href = "register.html";
+        return;
+      }
+
+      currentVendorId = user.uid;
+      const vendorDoc = await db.collection("vendors").doc(currentVendorId).get();
+
+      if (!vendorDoc.exists) {
+        document.getElementById("postAccessStatus").innerText = "Vendor profile not found.";
+        return;
+      }
+
+      const vendor = vendorDoc.data();
+      const postForm = document.getElementById("postForm");
+      const postAccessStatus = document.getElementById("postAccessStatus");
+
+      if (!vendor.isApproved) {
+        postAccessStatus.innerText = "Your account is pending approval.";
+      } else if (vendor.subscriptionStatus !== "active") {
+        postAccessStatus.innerText = "Your subscription is not active. Please contact admin.";
       } else {
-        currentVendorId = user.uid;
+        postForm.classList.remove("hidden");
+        postAccessStatus.innerText = "";
       }
     });
 
