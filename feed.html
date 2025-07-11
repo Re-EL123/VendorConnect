@@ -11,13 +11,22 @@
 </head>
 <body class="bg-gray-100 text-gray-900">
   <div class="max-w-4xl mx-auto py-6 px-4">
-    <div class="flex justify-between items-center mb-4">
+    <div class="flex flex-col md:flex-row justify-between items-center mb-4 gap-4">
       <h1 class="text-2xl font-bold">Street Feed</h1>
-      <select id="sortSelect" class="border p-2 rounded">
-        <option value="timestamp">Newest</option>
-        <option value="likes">Most Liked</option>
-        <option value="views">Most Viewed</option>
-      </select>
+      <div class="flex gap-2">
+        <select id="provinceSelect" class="border p-2 rounded">
+          <option value="">All Provinces</option>
+          <option value="Gauteng">Gauteng</option>
+          <option value="Western Cape">Western Cape</option>
+          <option value="KwaZulu-Natal">KwaZulu-Natal</option>
+          <!-- Add more provinces as needed -->
+        </select>
+        <select id="sortSelect" class="border p-2 rounded">
+          <option value="timestamp">Newest</option>
+          <option value="likes">Most Liked</option>
+          <option value="views">Most Viewed</option>
+        </select>
+      </div>
     </div>
 
     <div id="feed" class="space-y-6"></div>
@@ -36,15 +45,26 @@
     };
 
     firebase.initializeApp(firebaseConfig);
+    const auth = firebase.auth();
     const db = firebase.firestore();
 
     const feed = document.getElementById("feed");
     const sortSelect = document.getElementById("sortSelect");
+    const provinceSelect = document.getElementById("provinceSelect");
 
     sortSelect.addEventListener("change", loadPosts);
+    provinceSelect.addEventListener("change", loadPosts);
+
+    let currentUser;
+
+    auth.onAuthStateChanged(user => {
+      currentUser = user;
+      loadPosts();
+    });
 
     async function loadPosts() {
       const sortBy = sortSelect.value;
+      const provinceFilter = provinceSelect.value;
       feed.innerHTML = "<p>Loading feed...</p>";
 
       const snapshot = await db.collection("posts").orderBy(sortBy, "desc").limit(50).get();
@@ -55,22 +75,45 @@
         return;
       }
 
-      snapshot.forEach(doc => {
+      for (const doc of snapshot.docs) {
         const post = doc.data();
+        const postId = doc.id;
+
+        const vendorDoc = await db.collection("users").doc(post.vendorId).get();
+        const vendor = vendorDoc.data();
+
+        if (provinceFilter && vendor.province !== provinceFilter) continue;
+
+        const ratingsSnapshot = await db.collection("ratings").where("vendorId", "==", post.vendorId).get();
+        let total = 0, count = 0;
+        ratingsSnapshot.forEach(r => {
+          total += r.data().rating;
+          count++;
+        });
+        const avgRating = count ? (total / count).toFixed(1) : "N/A";
+
+        const isFollowing = currentUser ? (await db.collection("follows")
+          .where("followerId", "==", currentUser.uid)
+          .where("vendorId", "==", post.vendorId).get()).size > 0 : false;
+
         const card = document.createElement("div");
         card.className = "bg-white rounded shadow p-4";
         card.innerHTML = `
           <img src="${post.imageURL}" class="w-full h-64 object-cover rounded mb-4" />
           <h2 class="text-xl font-semibold">${post.title}</h2>
           <p class="text-gray-700">${post.description.slice(0, 100)}...</p>
-          <div class="text-sm text-gray-500 mt-2">Likes: ${post.likes || 0} | Views: ${post.views || 0}</div>
+          <div class="text-sm text-gray-500 mt-2">
+            Likes: ${post.likes || 0} | Views: ${post.views || 0} <br>
+            Vendor: ${vendor.businessName || vendor.fullName || "Unknown"} | Rating: ⭐ ${avgRating}
+          </div>
           <div class="mt-2 space-x-2">
-            <a href="view-post.html?id=${doc.id}" class="text-blue-600 underline">View</a>
-            <button onclick="sharePost('${doc.id}')" class="text-green-600 underline">Share</button>
+            <a href="view-post.html?id=${postId}" class="text-blue-600 underline">View</a>
+            <button onclick="sharePost('${postId}')" class="text-green-600 underline">Share</button>
+            ${currentUser ? `<button onclick="toggleFollow('${post.vendorId}')" class="text-sm text-${isFollowing ? 'red' : 'blue'}-600 underline">${isFollowing ? 'Unfollow' : 'Follow'}</button>` : ''}
           </div>
         `;
         feed.appendChild(card);
-      });
+      }
     }
 
     function sharePost(postId) {
@@ -80,7 +123,22 @@
       });
     }
 
-    loadPosts();
+    async function toggleFollow(vendorId) {
+      if (!currentUser) return alert("Login required to follow vendors");
+      const followRef = db.collection("follows");
+      const existing = await followRef
+        .where("followerId", "==", currentUser.uid)
+        .where("vendorId", "==", vendorId).get();
+
+      if (!existing.empty) {
+        await followRef.doc(existing.docs[0].id).delete();
+        alert("Unfollowed");
+      } else {
+        await followRef.add({ followerId: currentUser.uid, vendorId });
+        alert("Followed");
+      }
+      loadPosts();
+    }
   </script>
 </body>
 </html>
