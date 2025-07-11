@@ -1,9 +1,9 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Street Link - Upload a Post</title>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Street Connect - Upload Post</title>
   <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
   <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
@@ -11,21 +11,15 @@
   <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-storage-compat.js"></script>
 </head>
 <body class="bg-gray-100 text-gray-900">
+  <div class="max-w-2xl mx-auto py-10 px-4">
+    <h1 class="text-3xl font-bold mb-6">Upload a Post</h1>
 
-  <div class="max-w-xl mx-auto mt-10 bg-white p-8 rounded shadow">
-    <h1 class="text-3xl font-bold mb-6 text-center">Create a New Post</h1>
-
-    <div id="postAccessStatus" class="text-center text-sm text-red-600 mb-4"></div>
-
-    <form id="postForm" class="space-y-4 hidden">
+    <form id="postForm" class="bg-white p-6 rounded shadow space-y-4">
+      <input type="text" id="title" placeholder="Post Title" class="w-full p-3 border rounded" required>
+      <textarea id="description" placeholder="Post Description" class="w-full p-3 border rounded" rows="4" required></textarea>
       <input type="file" id="postImage" accept="image/*" class="w-full p-3 border rounded bg-gray-50" required>
-      <textarea id="caption" placeholder="Write a caption or describe your post..." class="w-full p-3 border rounded" rows="4" required></textarea>
-      <button type="submit" class="bg-green-600 text-white w-full p-3 rounded font-semibold hover:bg-green-700 transition">Upload Post</button>
+      <button type="submit" class="bg-green-600 text-white w-full p-3 rounded hover:bg-green-700">Upload Post</button>
     </form>
-
-    <div class="text-center mt-6">
-      <button onclick="logout()" class="text-sm text-red-600 underline">Logout</button>
-    </div>
   </div>
 
   <script>
@@ -45,76 +39,50 @@
     const db = firebase.firestore();
     const storage = firebase.storage();
 
-    let currentVendorId = "";
+    let currentUser;
 
-    auth.onAuthStateChanged(async user => {
+    auth.onAuthStateChanged(user => {
       if (!user) {
-        alert("You must be logged in to post.");
-        window.location.href = "register.html";
-        return;
-      }
-
-      currentVendorId = user.uid;
-      const vendorDoc = await db.collection("vendors").doc(currentVendorId).get();
-
-      if (!vendorDoc.exists) {
-        document.getElementById("postAccessStatus").innerText = "Vendor profile not found.";
-        return;
-      }
-
-      const vendor = vendorDoc.data();
-      const postForm = document.getElementById("postForm");
-      const postAccessStatus = document.getElementById("postAccessStatus");
-
-      if (!vendor.isApproved) {
-        postAccessStatus.innerText = "Your account is pending approval.";
-      } else if (vendor.subscriptionStatus !== "active") {
-        postAccessStatus.innerText = "Your subscription is not active. Please contact admin.";
+        window.location.href = "login.html";
       } else {
-        postForm.classList.remove("hidden");
-        postAccessStatus.innerText = "";
+        currentUser = user;
       }
     });
 
     document.getElementById("postForm").addEventListener("submit", async (e) => {
       e.preventDefault();
 
-      const caption = document.getElementById("caption").value.trim();
+      const title = document.getElementById("title").value;
+      const description = document.getElementById("description").value;
       const imageFile = document.getElementById("postImage").files[0];
 
-      if (!caption || !imageFile) {
-        alert("Please select an image and write a caption.");
+      if (!imageFile) {
+        alert("Please select an image.");
         return;
       }
 
       try {
-        const timestamp = Date.now();
-        const imageRef = storage.ref().child(`vendors/${currentVendorId}/posts/${timestamp}.jpg`);
+        const imageRef = storage.ref().child(`posts/${currentUser.uid}/${Date.now()}_${imageFile.name}`);
         await imageRef.put(imageFile);
         const imageURL = await imageRef.getDownloadURL();
 
         await db.collection("posts").add({
-          vendorId: currentVendorId,
-          caption,
+          uid: currentUser.uid,
+          title,
+          description,
           imageURL,
-          timestamp: firebase.firestore.FieldValue.serverTimestamp()
+          createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+          likes: 0,
+          views: 0
         });
 
         alert("Post uploaded successfully!");
-        document.getElementById("postForm").reset();
-
+        window.location.href = "vendor-dashboard.html";
       } catch (error) {
-        console.error("Error uploading post:", error);
-        alert("Upload failed: " + error.message);
+        console.error(error);
+        alert("Error uploading post: " + error.message);
       }
     });
-
-    function logout() {
-      auth.signOut().then(() => {
-        window.location.href = "index.html";
-      });
-    }
   </script>
-
 </body>
 </html>
