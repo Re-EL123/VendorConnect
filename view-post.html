@@ -1,22 +1,19 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Street Connect - My Posts</title>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Street Connect - View Post</title>
   <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
   <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
 </head>
 <body class="bg-gray-100 text-gray-900">
-  <div class="max-w-5xl mx-auto py-10 px-4">
-    <div class="flex justify-between items-center mb-6">
-      <h1 class="text-3xl font-bold">My Posts</h1>
-      <button onclick="logout()" class="text-sm text-red-600 underline">Logout</button>
+  <div class="max-w-3xl mx-auto py-10 px-4">
+    <div id="postContainer" class="bg-white p-6 rounded shadow space-y-4">
+      <p class="text-center">Loading post...</p>
     </div>
-
-    <div id="postsContainer" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6"></div>
   </div>
 
   <script>
@@ -35,49 +32,65 @@
     const auth = firebase.auth();
     const db = firebase.firestore();
 
-    let currentUser;
+    const postId = new URLSearchParams(window.location.search).get("id");
+    const postContainer = document.getElementById("postContainer");
 
-    auth.onAuthStateChanged(async user => {
-      if (!user) {
-        window.location.href = "login.html";
-        return;
-      }
-      currentUser = user;
-      loadPosts();
-    });
-
-    async function loadPosts() {
-      const container = document.getElementById("postsContainer");
-      container.innerHTML = "<p class='text-center col-span-full'>Loading...</p>";
-
-      const querySnapshot = await db.collection("posts")
-        .where("uid", "==", currentUser.uid)
-        .orderBy("createdAt", "desc")
-        .get();
-
-      if (querySnapshot.empty) {
-        container.innerHTML = "<p class='text-center col-span-full'>You have no posts yet.</p>";
+    async function loadPost() {
+      if (!postId) {
+        postContainer.innerHTML = "<p class='text-center'>Invalid post ID.</p>";
         return;
       }
 
-      container.innerHTML = "";
-      querySnapshot.forEach(doc => {
-        const post = doc.data();
-        const postEl = document.createElement("div");
-        postEl.className = "bg-white p-4 rounded shadow";
-        postEl.innerHTML = `
-          <img src="${post.imageURL}" alt="Post Image" class="w-full h-48 object-cover rounded mb-3">
-          <h2 class="text-xl font-semibold">${post.title}</h2>
-          <p class="text-sm text-gray-600 mb-2">${post.description}</p>
-          <p class="text-xs text-gray-500">Likes: ${post.likes || 0} | Views: ${post.views || 0}</p>
+      try {
+        const postDoc = await db.collection("posts").doc(postId).get();
+        if (!postDoc.exists) {
+          postContainer.innerHTML = "<p class='text-center'>Post not found.</p>";
+          return;
+        }
+
+        const post = postDoc.data();
+        const vendorDoc = await db.collection("users").doc(post.uid).get();
+        const vendor = vendorDoc.data();
+
+        postContainer.innerHTML = `
+          <img src="${post.imageURL}" alt="Post Image" class="w-full h-64 object-cover rounded">
+          <h1 class="text-2xl font-bold">${post.title}</h1>
+          <p class="text-gray-700">${post.description}</p>
+          <div class="text-sm text-gray-600 mt-4">
+            <p>Posted by: <strong>${vendor.businessName || vendor.fullName || "Unknown Vendor"}</strong></p>
+            <p>Contact: <a href="https://wa.me/${vendor.phone}" target="_blank" class="text-green-600 underline">WhatsApp</a></p>
+            <p>Location: ${vendor.address || "N/A"}</p>
+            <p>Likes: ${post.likes || 0} | Views: ${post.views || 0}</p>
+          </div>
+          <div class="mt-4">
+            <button id="likeBtn" class="px-4 py-2 bg-pink-600 text-white rounded hover:bg-pink-700 transition">❤️ Like</button>
+          </div>
         `;
-        container.appendChild(postEl);
-      });
+
+        document.getElementById("likeBtn").addEventListener("click", () => likePost(postId));
+      } catch (err) {
+        console.error(err);
+        postContainer.innerHTML = "<p class='text-center'>An error occurred loading the post.</p>";
+      }
     }
 
-    function logout() {
-      auth.signOut().then(() => window.location.href = "login.html");
+    function likePost(postId) {
+      const likedKey = `liked_${postId}`;
+      if (localStorage.getItem(likedKey)) {
+        alert("You already liked this post.");
+        return;
+      }
+
+      db.collection("posts").doc(postId).update({
+        likes: firebase.firestore.FieldValue.increment(1)
+      });
+
+      localStorage.setItem(likedKey, "true");
+      document.getElementById("likeBtn").classList.add("scale-110", "bg-pink-700");
+      document.getElementById("likeBtn").innerText = "❤️ Liked";
     }
+
+    loadPost();
   </script>
 </body>
 </html>
