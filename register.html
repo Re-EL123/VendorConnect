@@ -1,38 +1,30 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Street Link - Vendor Registration</title>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Street Connect - Register</title>
   <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
   <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-storage-compat.js"></script>
 </head>
 <body class="bg-gray-100 text-gray-900">
-
   <div class="max-w-xl mx-auto mt-10 bg-white p-8 rounded shadow">
-    <h1 class="text-3xl font-bold mb-6 text-center">Vendor Registration</h1>
+    <h1 class="text-3xl font-bold mb-6 text-center">Join Street Connect</h1>
 
     <form id="registerForm" class="space-y-4">
-      <input type="text" id="name" placeholder="Business Name" class="w-full p-3 border rounded" required>
+      <input type="text" id="name" placeholder="Full Name" class="w-full p-3 border rounded" required>
       <input type="email" id="email" placeholder="Email" class="w-full p-3 border rounded" required>
       <input type="password" id="password" placeholder="Password" class="w-full p-3 border rounded" required>
       <input type="text" id="phone" placeholder="Phone Number (WhatsApp)" class="w-full p-3 border rounded" required>
-      <input type="text" id="category" placeholder="Business Category (e.g. Food, Fashion)" class="w-full p-3 border rounded" required>
-      <textarea id="description" placeholder="Short Business Description" class="w-full p-3 border rounded" rows="3" required></textarea>
+      <input type="text" id="province" placeholder="Province" class="w-full p-3 border rounded" required>
+      <input type="text" id="city" placeholder="City" class="w-full p-3 border rounded" required>
 
-      <label class="block mt-4 text-sm font-medium">Profile Image</label>
-      <input type="file" id="profileImage" accept="image/*" class="w-full p-3 border rounded bg-gray-50">
-
-      <label class="block mt-4 text-sm font-medium">Upload Proof of Payment (optional)</label>
-      <input type="file" id="paymentProof" accept="image/*" class="w-full p-3 border rounded bg-gray-50">
-
-      <button type="submit" class="bg-green-600 text-white w-full p-3 rounded font-semibold hover:bg-green-700">Register</button>
+      <button type="submit" class="bg-green-600 text-white w-full p-3 rounded font-semibold hover:bg-green-700">Create Account</button>
     </form>
 
-    <p class="text-center mt-4 text-sm text-gray-600">Already have an account? <a href="index.html" class="text-green-600 font-semibold">Login</a></p>
+    <p class="text-center mt-4 text-sm text-gray-600">Already have an account? <a href="login.html" class="text-green-600 font-semibold">Login</a></p>
   </div>
 
   <script>
@@ -50,67 +42,41 @@
     firebase.initializeApp(firebaseConfig);
     const auth = firebase.auth();
     const db = firebase.firestore();
-    const storage = firebase.storage();
 
     document.getElementById("registerForm").addEventListener("submit", async (e) => {
       e.preventDefault();
 
-      const name = document.getElementById("name").value.trim();
-      const email = document.getElementById("email").value.trim();
+      const name = document.getElementById("name").value;
+      const email = document.getElementById("email").value;
       const password = document.getElementById("password").value;
-      const phone = document.getElementById("phone").value.trim();
-      const category = document.getElementById("category").value.trim();
-      const description = document.getElementById("description").value.trim();
-      const profileImage = document.getElementById("profileImage").files[0];
-      const paymentProof = document.getElementById("paymentProof").files[0];
+      const phone = document.getElementById("phone").value;
+      const province = document.getElementById("province").value;
+      const city = document.getElementById("city").value;
 
       try {
         const userCredential = await auth.createUserWithEmailAndPassword(email, password);
         const uid = userCredential.user.uid;
 
-        let imageURL = "", proofURL = "";
-
-        if (profileImage) {
-          const imgRef = storage.ref().child(`vendors/${uid}/profile.jpg`);
-          await imgRef.put(profileImage);
-          imageURL = await imgRef.getDownloadURL();
-        }
-
-        if (paymentProof) {
-          const proofRef = storage.ref().child(`vendors/${uid}/subscription/payment_proof.jpg`);
-          await proofRef.put(paymentProof);
-          proofURL = await proofRef.getDownloadURL();
-        }
-
-        await db.collection("vendors").doc(uid).set({
+        await db.collection("users").doc(uid).set({
           uid,
           name,
           email,
           phone,
-          category,
-          description,
-          imageURL,
-          isApproved: false,
-          subscriptionStatus: "pending",
+          province,
+          city,
+          role: "basic", // user default
+          isVendor: false,
+          subscriptionType: "basic", // basic, pro, business
           createdAt: firebase.firestore.FieldValue.serverTimestamp()
         });
 
-        await db.collection("subscriptions").doc(uid).set({
-          plan: "basic",
-          status: "pending",
-          paymentProofURL: proofURL || "",
-          createdAt: firebase.firestore.FieldValue.serverTimestamp()
-        });
-
-        alert("Registration successful! Please wait for admin approval.");
-        window.location.href = "index.html";
-
+        alert("Account created successfully!");
+        window.location.href = "dashboard.html";
       } catch (error) {
-        console.error(error);
+        console.error("Error:", error.message);
         alert("Registration failed: " + error.message);
       }
     });
   </script>
-
 </body>
 </html>
