@@ -1,17 +1,22 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Street Link - View Post</title>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Street Connect - My Posts</title>
   <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
   <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
 </head>
 <body class="bg-gray-100 text-gray-900">
+  <div class="max-w-5xl mx-auto py-10 px-4">
+    <div class="flex justify-between items-center mb-6">
+      <h1 class="text-3xl font-bold">My Posts</h1>
+      <button onclick="logout()" class="text-sm text-red-600 underline">Logout</button>
+    </div>
 
-  <div class="max-w-2xl mx-auto py-10 px-4">
-    <div id="postContainer" class="bg-white p-6 rounded shadow"></div>
+    <div id="postsContainer" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6"></div>
   </div>
 
   <script>
@@ -27,39 +32,52 @@
     };
 
     firebase.initializeApp(firebaseConfig);
+    const auth = firebase.auth();
     const db = firebase.firestore();
 
-    // Get post ID from query string
-    const urlParams = new URLSearchParams(window.location.search);
-    const postId = urlParams.get("id");
+    let currentUser;
 
-    async function loadPost() {
-      const postContainer = document.getElementById("postContainer");
-      if (!postId) {
-        postContainer.innerHTML = "<p class='text-red-600'>No post ID provided.</p>";
+    auth.onAuthStateChanged(async user => {
+      if (!user) {
+        window.location.href = "login.html";
+        return;
+      }
+      currentUser = user;
+      loadPosts();
+    });
+
+    async function loadPosts() {
+      const container = document.getElementById("postsContainer");
+      container.innerHTML = "<p class='text-center col-span-full'>Loading...</p>";
+
+      const querySnapshot = await db.collection("posts")
+        .where("uid", "==", currentUser.uid)
+        .orderBy("createdAt", "desc")
+        .get();
+
+      if (querySnapshot.empty) {
+        container.innerHTML = "<p class='text-center col-span-full'>You have no posts yet.</p>";
         return;
       }
 
-      const postDoc = await db.collection("posts").doc(postId).get();
-      if (!postDoc.exists) {
-        postContainer.innerHTML = "<p class='text-red-600'>Post not found.</p>";
-        return;
-      }
-
-      const post = postDoc.data();
-      const vendorSnap = await db.collection("vendors").doc(post.vendorId).get();
-      const vendor = vendorSnap.exists ? vendorSnap.data() : { name: "Unknown Vendor" };
-
-      postContainer.innerHTML = `
-        <h2 class="text-xl font-bold mb-2">${vendor.name}</h2>
-        <img src="${post.imageURL}" class="w-full h-72 object-cover rounded mb-4">
-        <p class="mb-4 text-gray-800">${post.caption}</p>
-        <p class="text-sm text-gray-500">Posted on ${post.timestamp?.toDate().toLocaleString() || "Unknown"}</p>
-      `;
+      container.innerHTML = "";
+      querySnapshot.forEach(doc => {
+        const post = doc.data();
+        const postEl = document.createElement("div");
+        postEl.className = "bg-white p-4 rounded shadow";
+        postEl.innerHTML = `
+          <img src="${post.imageURL}" alt="Post Image" class="w-full h-48 object-cover rounded mb-3">
+          <h2 class="text-xl font-semibold">${post.title}</h2>
+          <p class="text-sm text-gray-600 mb-2">${post.description}</p>
+          <p class="text-xs text-gray-500">Likes: ${post.likes || 0} | Views: ${post.views || 0}</p>
+        `;
+        container.appendChild(postEl);
+      });
     }
 
-    loadPost();
+    function logout() {
+      auth.signOut().then(() => window.location.href = "login.html");
+    }
   </script>
-
 </body>
 </html>
