@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
+  <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Street Connect - Feed</title>
   <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
@@ -10,18 +10,17 @@
   <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
 </head>
 <body class="bg-gray-100 text-gray-900">
-  <div class="max-w-6xl mx-auto py-8 px-4">
-    <div class="flex justify-between items-center mb-6">
-      <h1 class="text-3xl font-bold">Vendor Feed</h1>
-      <button onclick="logout()" class="text-sm text-red-600 underline">Logout</button>
+  <div class="max-w-4xl mx-auto py-6 px-4">
+    <div class="flex justify-between items-center mb-4">
+      <h1 class="text-2xl font-bold">Street Feed</h1>
+      <select id="sortSelect" class="border p-2 rounded">
+        <option value="timestamp">Newest</option>
+        <option value="likes">Most Liked</option>
+        <option value="views">Most Viewed</option>
+      </select>
     </div>
 
-    <div class="mb-6">
-      <label class="block mb-2 font-semibold">Filter by Province/City:</label>
-      <input type="text" id="locationFilter" placeholder="e.g. Gauteng, Johannesburg" class="w-full p-3 border rounded">
-    </div>
-
-    <div id="feedContainer" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6"></div>
+    <div id="feed" class="space-y-6"></div>
   </div>
 
   <script>
@@ -37,98 +36,51 @@
     };
 
     firebase.initializeApp(firebaseConfig);
-    const auth = firebase.auth();
     const db = firebase.firestore();
 
-    let currentUser;
+    const feed = document.getElementById("feed");
+    const sortSelect = document.getElementById("sortSelect");
 
-    auth.onAuthStateChanged(async user => {
-      if (!user) {
-        window.location.href = "login.html";
+    sortSelect.addEventListener("change", loadPosts);
+
+    async function loadPosts() {
+      const sortBy = sortSelect.value;
+      feed.innerHTML = "<p>Loading feed...</p>";
+
+      const snapshot = await db.collection("posts").orderBy(sortBy, "desc").limit(50).get();
+      feed.innerHTML = "";
+
+      if (snapshot.empty) {
+        feed.innerHTML = "<p>No posts yet.</p>";
         return;
       }
-      currentUser = user;
-      loadFeed();
-    });
 
-    async function loadFeed(filter = "") {
-      const container = document.getElementById("feedContainer");
-      container.innerHTML = "<p class='text-center col-span-full'>Loading feed...</p>";
-
-      const postsSnapshot = await db.collection("posts").orderBy("createdAt", "desc").get();
-      const usersSnapshot = await db.collection("users").get();
-
-      const usersMap = {};
-      usersSnapshot.forEach(userDoc => {
-        usersMap[userDoc.id] = userDoc.data();
-      });
-
-      container.innerHTML = "";
-      postsSnapshot.forEach(doc => {
+      snapshot.forEach(doc => {
         const post = doc.data();
-        const user = usersMap[post.uid];
-
-        if (!user || !user.isVendor) return;
-        const locationMatch = !filter || user.address?.toLowerCase().includes(filter.toLowerCase());
-        if (!locationMatch) return;
-
-        const postEl = document.createElement("div");
-        postEl.className = "bg-white p-4 rounded shadow flex flex-col";
-        postEl.innerHTML = `
-          <img src="${post.imageURL}" alt="Post Image" class="w-full h-48 object-cover rounded mb-3">
+        const card = document.createElement("div");
+        card.className = "bg-white rounded shadow p-4";
+        card.innerHTML = `
+          <img src="${post.imageURL}" class="w-full h-64 object-cover rounded mb-4" />
           <h2 class="text-xl font-semibold">${post.title}</h2>
-          <p class="text-sm text-gray-600 mb-1">${post.description}</p>
-          <p class="text-xs text-gray-500 mb-1">From: ${user.businessName || "Unknown Vendor"}</p>
-          <p class="text-xs text-gray-500 mb-1">Location: ${user.address || "Unknown"}</p>
-          <div class="text-xs text-gray-500 mb-2">Likes: ${post.likes || 0} | Views: ${post.views || 0}</div>
-          <div class="mt-auto flex space-x-2">
-            <button onclick="likePost('${doc.id}')" class="text-sm bg-pink-500 text-white px-3 py-1 rounded hover:bg-pink-600">Like</button>
-            <button onclick="sharePost('${post.title}', '${window.location.href}#${doc.id}')" class="text-sm bg-blue-500 text-white px-3 py-1 rounded hover:bg-blue-600">Share</button>
-            <button onclick="viewPost('${doc.id}')" class="text-sm bg-gray-700 text-white px-3 py-1 rounded hover:bg-gray-800">View</button>
+          <p class="text-gray-700">${post.description.slice(0, 100)}...</p>
+          <div class="text-sm text-gray-500 mt-2">Likes: ${post.likes || 0} | Views: ${post.views || 0}</div>
+          <div class="mt-2 space-x-2">
+            <a href="view-post.html?id=${doc.id}" class="text-blue-600 underline">View</a>
+            <button onclick="sharePost('${doc.id}')" class="text-green-600 underline">Share</button>
           </div>
         `;
-        container.appendChild(postEl);
-      });
-
-      if (!container.children.length) {
-        container.innerHTML = "<p class='text-center col-span-full'>No posts found for this location.</p>";
-      }
-    }
-
-    function likePost(postId) {
-      const postRef = db.collection("posts").doc(postId);
-      postRef.update({
-        likes: firebase.firestore.FieldValue.increment(1)
+        feed.appendChild(card);
       });
     }
 
-    function sharePost(title, url) {
-      if (navigator.share) {
-        navigator.share({
-          title: title,
-          url: url
-        }).catch(console.error);
-      } else {
-        prompt("Copy this link:", url);
-      }
-    }
-
-    async function viewPost(postId) {
-      const postRef = db.collection("posts").doc(postId);
-      await postRef.update({
-        views: firebase.firestore.FieldValue.increment(1)
+    function sharePost(postId) {
+      const shareURL = `${window.location.origin}/view-post.html?id=${postId}`;
+      navigator.clipboard.writeText(shareURL).then(() => {
+        alert("Post link copied to clipboard!");
       });
-      window.location.href = `view-post.html?id=${postId}`;
     }
 
-    document.getElementById("locationFilter").addEventListener("input", e => {
-      loadFeed(e.target.value);
-    });
-
-    function logout() {
-      auth.signOut().then(() => window.location.href = "login.html");
-    }
+    loadPosts();
   </script>
 </body>
 </html>
-
