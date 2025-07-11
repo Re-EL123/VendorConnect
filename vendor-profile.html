@@ -6,6 +6,7 @@
   <title>Street Connect - Vendor Profile</title>
   <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
   <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
 </head>
 <body class="bg-gray-100 text-gray-900">
@@ -29,9 +30,16 @@
 
     firebase.initializeApp(firebaseConfig);
     const db = firebase.firestore();
+    const auth = firebase.auth();
 
     const params = new URLSearchParams(window.location.search);
     const vendorId = params.get("vendor");
+    let currentUser = null;
+
+    auth.onAuthStateChanged(user => {
+      currentUser = user;
+      loadVendorProfile();
+    });
 
     async function loadVendorProfile() {
       const doc = await db.collection("users").doc(vendorId).get();
@@ -51,6 +59,14 @@
         .where("vendorId", "==", vendorId).get();
       const followersCount = followersSnapshot.size;
 
+      let isFollowing = false;
+      if (currentUser) {
+        const followCheck = await db.collection("follows")
+          .where("followerId", "==", currentUser.uid)
+          .where("vendorId", "==", vendorId).get();
+        isFollowing = !followCheck.empty;
+      }
+
       document.getElementById("vendorInfo").innerHTML = `
         <div class="flex items-center space-x-4">
           <img src="${vendor.imageURL || 'https://via.placeholder.com/80'}" alt="Profile" class="w-20 h-20 rounded-full object-cover" />
@@ -58,6 +74,11 @@
             <h2 class="text-2xl font-bold">${vendor.businessName || vendor.fullName}</h2>
             <p class="text-sm text-gray-600">Category: ${vendor.category || 'General'} | Province: ${vendor.province || ''}</p>
             <p class="text-sm">⭐ ${avgRating} | ${followersCount} Followers</p>
+            <div class="flex gap-3 mt-2">
+              ${currentUser ? `<button onclick="toggleFollow()" class="px-3 py-1 text-sm rounded ${isFollowing ? 'bg-red-500 text-white' : 'bg-blue-500 text-white'}">${isFollowing ? 'Unfollow' : 'Follow'}</button>` : ''}
+              <a href="chat.html?user=${vendorId}" class="text-purple-600 underline text-sm">Message</a>
+              <a href="ratings.html?vendor=${vendorId}" class="text-yellow-600 underline text-sm">Rate</a>
+            </div>
           </div>
         </div>
       `;
@@ -86,7 +107,21 @@
       }).join("");
     }
 
-    loadVendorProfile();
+    async function toggleFollow() {
+      if (!currentUser) return alert("You must be logged in to follow vendors");
+      const followRef = db.collection("follows");
+      const query = await followRef
+        .where("followerId", "==", currentUser.uid)
+        .where("vendorId", "==", vendorId)
+        .get();
+
+      if (!query.empty) {
+        await followRef.doc(query.docs[0].id).delete();
+      } else {
+        await followRef.add({ followerId: currentUser.uid, vendorId });
+      }
+      loadVendorProfile();
+    }
   </script>
 </body>
 </html>
