@@ -73,13 +73,19 @@
         if (!locationMatch) return;
 
         const postEl = document.createElement("div");
-        postEl.className = "bg-white p-4 rounded shadow";
+        postEl.className = "bg-white p-4 rounded shadow flex flex-col";
         postEl.innerHTML = `
           <img src="${post.imageURL}" alt="Post Image" class="w-full h-48 object-cover rounded mb-3">
           <h2 class="text-xl font-semibold">${post.title}</h2>
           <p class="text-sm text-gray-600 mb-1">${post.description}</p>
           <p class="text-xs text-gray-500 mb-1">From: ${user.businessName || "Unknown Vendor"}</p>
-          <p class="text-xs text-gray-500">Location: ${user.address || "Unknown"}</p>
+          <p class="text-xs text-gray-500 mb-1">Location: ${user.address || "Unknown"}</p>
+          <div class="text-xs text-gray-500 mb-2">Likes: ${post.likes || 0} | Views: ${post.views || 0}</div>
+          <div class="mt-auto flex space-x-2">
+            <button onclick="likePost('${doc.id}')" class="text-sm bg-pink-500 text-white px-3 py-1 rounded hover:bg-pink-600">Like</button>
+            <button onclick="sharePost('${post.title}', '${window.location.href}#${doc.id}')" class="text-sm bg-blue-500 text-white px-3 py-1 rounded hover:bg-blue-600">Share</button>
+            <button onclick="viewPost('${doc.id}')" class="text-sm bg-gray-700 text-white px-3 py-1 rounded hover:bg-gray-800">View</button>
+          </div>
         `;
         container.appendChild(postEl);
       });
@@ -87,6 +93,32 @@
       if (!container.children.length) {
         container.innerHTML = "<p class='text-center col-span-full'>No posts found for this location.</p>";
       }
+    }
+
+    function likePost(postId) {
+      const postRef = db.collection("posts").doc(postId);
+      postRef.update({
+        likes: firebase.firestore.FieldValue.increment(1)
+      });
+    }
+
+    function sharePost(title, url) {
+      if (navigator.share) {
+        navigator.share({
+          title: title,
+          url: url
+        }).catch(console.error);
+      } else {
+        prompt("Copy this link:", url);
+      }
+    }
+
+    async function viewPost(postId) {
+      const postRef = db.collection("posts").doc(postId);
+      await postRef.update({
+        views: firebase.firestore.FieldValue.increment(1)
+      });
+      window.location.href = `view-post.html?id=${postId}`;
     }
 
     document.getElementById("locationFilter").addEventListener("input", e => {
