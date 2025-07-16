@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
+  <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Street Connect - Feed</title>
   <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
@@ -10,31 +10,19 @@
   <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
 </head>
 <body class="bg-gray-100 text-gray-900">
-  <div class="max-w-4xl mx-auto py-6 px-4">
-    <div class="flex flex-col md:flex-row justify-between items-center mb-4 gap-4">
-      <h1 class="text-2xl font-bold">Street Feed</h1>
-      <div class="flex gap-2">
-        <select id="provinceSelect" class="border p-2 rounded">
-          <option value="">All Provinces</option>
-          <option value="Gauteng">Gauteng</option>
-          <option value="Western Cape">Western Cape</option>
-          <option value="KwaZulu-Natal">KwaZulu-Natal</option>
-          <option value="Free State">All Provinces</option>
-          <option value="Limpopo">Gauteng</option>
-          <option value="Eastern Cape">Western Cape</option>
-          <option value="Cape Town">KwaZulu-Natal</option>
-          <option value="Northen Cape">KwaZulu-Natal</option>
-          <option value="Mpumalanga">KwaZulu-Natal</option>
-        </select>
-        <select id="sortSelect" class="border p-2 rounded">
-          <option value="timestamp">Newest</option>
-          <option value="likes">Most Liked</option>
-          <option value="views">Most Viewed</option>
-        </select>
-      </div>
+  <div class="bg-white shadow p-4 flex justify-between items-center">
+    <h1 class="text-xl font-bold">Street Connect</h1>
+    <div class="space-x-4">
+      <button id="dashboardBtn" class="text-blue-600 font-semibold">Dashboard</button>
+      <a href="inbox.html" class="text-blue-600 font-semibold">Inbox</a>
+      <a href="settings.html" class="text-blue-600 font-semibold">Settings</a>
+      <button id="uploadPostBtn" class="bg-green-500 text-white px-3 py-1 rounded hidden">Upload Post</button>
     </div>
+  </div>
 
-    <div id="feed" class="space-y-6"></div>
+  <div class="max-w-4xl mx-auto p-4">
+    <h2 class="text-2xl font-semibold mb-4">Public Feed</h2>
+    <div id="feedContainer" class="grid grid-cols-1 md:grid-cols-2 gap-4"></div>
   </div>
 
   <script>
@@ -53,96 +41,51 @@
     const auth = firebase.auth();
     const db = firebase.firestore();
 
-    const feed = document.getElementById("feed");
-    const sortSelect = document.getElementById("sortSelect");
-    const provinceSelect = document.getElementById("provinceSelect");
-
-    sortSelect.addEventListener("change", loadPosts);
-    provinceSelect.addEventListener("change", loadPosts);
-
     let currentUser;
 
-    auth.onAuthStateChanged(user => {
+    auth.onAuthStateChanged(async user => {
+      if (!user) {
+        window.location.href = "login.html";
+        return;
+      }
       currentUser = user;
-      loadPosts();
+
+      const doc = await db.collection("users").doc(user.uid).get();
+      const userData = doc.data();
+
+      if (userData.isVendor) {
+        document.getElementById("uploadPostBtn").classList.remove("hidden");
+        document.getElementById("uploadPostBtn").addEventListener("click", () => {
+          window.location.href = "post-upload.html";
+        });
+      }
+
+      document.getElementById("dashboardBtn").addEventListener("click", () => {
+        window.location.href = userData.isVendor ? "vendor-dashboard.html" : "dashboard.html";
+      });
+
+      loadFeed();
     });
 
-    async function loadPosts() {
-      const sortBy = sortSelect.value;
-      const provinceFilter = provinceSelect.value;
-      feed.innerHTML = "<p>Loading feed...</p>";
-
-      const snapshot = await db.collection("posts").orderBy(sortBy, "desc").limit(50).get();
-      feed.innerHTML = "";
-
+    async function loadFeed() {
+      const snapshot = await db.collection("posts").orderBy("timestamp", "desc").get();
+      const feed = document.getElementById("feedContainer");
       if (snapshot.empty) {
-        feed.innerHTML = "<p>No posts yet.</p>";
+        feed.innerHTML = "<p class='text-center text-gray-600'>No posts available.</p>";
         return;
       }
 
-      for (const doc of snapshot.docs) {
+      feed.innerHTML = snapshot.docs.map(doc => {
         const post = doc.data();
-        const postId = doc.id;
-
-        const vendorDoc = await db.collection("users").doc(post.vendorId).get();
-        const vendor = vendorDoc.data();
-
-        if (provinceFilter && vendor.province !== provinceFilter) continue;
-
-        const ratingsSnapshot = await db.collection("ratings").where("vendorId", "==", post.vendorId).get();
-        let total = 0, count = 0;
-        ratingsSnapshot.forEach(r => {
-          total += r.data().rating;
-          count++;
-        });
-        const avgRating = count ? (total / count).toFixed(1) : "N/A";
-
-        const isFollowing = currentUser ? (await db.collection("follows")
-          .where("followerId", "==", currentUser.uid)
-          .where("vendorId", "==", post.vendorId).get()).size > 0 : false;
-
-        const card = document.createElement("div");
-        card.className = "bg-white rounded shadow p-4";
-        card.innerHTML = `
-          <img src="${post.imageURL}" class="w-full h-64 object-cover rounded mb-4" />
-          <h2 class="text-xl font-semibold">${post.title}</h2>
-          <p class="text-gray-700">${post.description.slice(0, 100)}...</p>
-          <div class="text-sm text-gray-500 mt-2">
-            Likes: ${post.likes || 0} | Views: ${post.views || 0} <br>
-            Vendor: ${vendor.businessName || vendor.fullName || "Unknown"} | Rating: ⭐ ${avgRating}
-          </div>
-          <div class="mt-2 space-x-2">
-            <a href="view-post.html?id=${postId}" class="text-blue-600 underline">View</a>
-            <button onclick="sharePost('${postId}')" class="text-green-600 underline">Share</button>
-            ${currentUser ? `<button onclick="toggleFollow('${post.vendorId}')" class="text-sm text-${isFollowing ? 'red' : 'blue'}-600 underline">${isFollowing ? 'Unfollow' : 'Follow'}</button>` : ''}
+        return `
+          <div class="bg-white rounded shadow p-4">
+            <img src="${post.imageURL}" alt="Post" class="w-full h-48 object-cover rounded mb-2">
+            <h3 class="text-lg font-bold">${post.title}</h3>
+            <p class="text-sm text-gray-600 mb-2">${post.description.slice(0, 100)}...</p>
+            <a href="view-post.html?id=${doc.id}" class="text-blue-600 underline text-sm">View Post</a>
           </div>
         `;
-        feed.appendChild(card);
-      }
-    }
-
-    function sharePost(postId) {
-      const shareURL = `${window.location.origin}/view-post.html?id=${postId}`;
-      navigator.clipboard.writeText(shareURL).then(() => {
-        alert("Post link copied to clipboard!");
-      });
-    }
-
-    async function toggleFollow(vendorId) {
-      if (!currentUser) return alert("Login required to follow vendors");
-      const followRef = db.collection("follows");
-      const existing = await followRef
-        .where("followerId", "==", currentUser.uid)
-        .where("vendorId", "==", vendorId).get();
-
-      if (!existing.empty) {
-        await followRef.doc(existing.docs[0].id).delete();
-        alert("Unfollowed");
-      } else {
-        await followRef.add({ followerId: currentUser.uid, vendorId });
-        alert("Followed");
-      }
-      loadPosts();
+      }).join("");
     }
   </script>
 </body>
