@@ -3,10 +3,58 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Login - Street Link</title>
+  <title>Street Link — Feed</title>
   <script src="https://cdn.tailwindcss.com"></script>
-  <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-auth.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-firestore-compat.js"></script>
+</head>
+<body class="bg-gray-100 text-gray-900">
+
+  <!-- Navigation Bar -->
+  <nav class="flex justify-between items-center bg-white shadow p-4">
+    <h1 class="text-xl font-bold text-blue-600">Street Link</h1>
+    <div class="space-x-3">
+      <button id="dashboardBtn" class="text-sm font-medium text-blue-600 hover:underline">Dashboard</button>
+      <button onclick="location.href='inbox.html'" class="text-sm font-medium text-blue-600 hover:underline">Inbox</button>
+      <button onclick="location.href='settings.html'" class="text-sm font-medium text-blue-600 hover:underline">Settings</button>
+    </div>
+  </nav>
+
+  <!-- Vendor Post Button -->
+  <div id="postBtnContainer" class="p-4 hidden">
+    <button onclick="location.href='upload-post.html'" class="bg-green-600 text-white px-4 py-2 rounded shadow hover:bg-green-700">
+      Create a Post
+    </button>
+  </div>
+
+  <!-- Filters -->
+  <div class="p-4 flex flex-wrap gap-4 items-center">
+    <select id="cityFilter" class="border rounded px-2 py-1">
+      <option value="">All Cities</option>
+      <option value="Cape Town">Cape Town</option>
+      <option value="Johannesburg">Johannesburg</option>
+      <option value="Durban">Durban</option>
+      <option value="Pretoria">Pretoria</option>
+    </select>
+
+    <select id="sortFilter" class="border rounded px-2 py-1">
+      <option value="timestamp">Newest</option>
+      <option value="likes">Most Liked</option>
+      <option value="views">Most Viewed</option>
+    </select>
+  </div>
+
+  <!-- Feed -->
+  <div id="feed" class="p-4 space-y-4"></div>
+
+  <!-- Pagination -->
+  <div class="flex justify-center items-center my-4">
+    <button id="prevPage" class="mx-2 px-3 py-1 border rounded bg-white hover:bg-gray-100">Previous</button>
+    <span id="pageInfo" class="text-sm text-gray-600"></span>
+    <button id="nextPage" class="mx-2 px-3 py-1 border rounded bg-white hover:bg-gray-100">Next</button>
+  </div>
+
   <script>
     const firebaseConfig = {
       apiKey: "AIzaSyDEsYzVYNvSsKvgFk5cSa_7lWWdJtDc1gs",
@@ -18,66 +66,103 @@
       appId: "1:947082232783:web:116206502e5fb38383c8ba",
       measurementId: "G-LNTNZQBGL8"
     };
-    const app = firebase.initializeApp(firebaseConfig);
+    firebase.initializeApp(firebaseConfig);
     const auth = firebase.auth();
-  </script>
-</head>
-<body class="bg-gray-100 flex items-center justify-center min-h-screen">
-  <div class="bg-white p-8 rounded-xl shadow-md w-full max-w-sm">
-    <h1 class="text-2xl font-bold mb-6 text-center">Login to Street Link</h1>
-    <form id="loginForm" class="space-y-4">
-      <input type="email" id="email" placeholder="Email" required class="w-full px-4 py-2 border rounded" />
-      <input type="password" id="password" placeholder="Password" required class="w-full px-4 py-2 border rounded" />
-      <label class="flex items-center space-x-2 text-sm">
-        <input type="checkbox" id="rememberMe" class="form-checkbox" />
-        <span>Remember Me</span>
-      </label>
-      <button type="submit" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-4 rounded">
-        Login
-      </button>
-    </form>
-    <div class="mt-4 text-center text-sm">
-      <button id="forgotPassword" class="text-blue-600 hover:underline">Forgot Password?</button>
-    </div>
-    <div class="mt-2 text-center text-sm">
-      <span>Don’t have an account?</span>
-      <a href="register.html" class="text-blue-600 hover:underline">Register</a>
-    </div>
-  </div>
+    const db = firebase.firestore();
 
-  <script>
-    const loginForm = document.getElementById("loginForm");
-    loginForm.addEventListener("submit", async (e) => {
-      e.preventDefault();
-      const email = document.getElementById("email").value;
-      const password = document.getElementById("password").value;
-      const rememberMe = document.getElementById("rememberMe").checked;
+    let currentUser;
+    let isVendor = false;
+    let posts = [];
+    let page = 1;
+    const pageSize = 10;
 
-      try {
-        if (rememberMe) {
-          await auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL);
-        } else {
-          await auth.setPersistence(firebase.auth.Auth.Persistence.SESSION);
-        }
+    auth.onAuthStateChanged(async user => {
+      if (!user) return location.href = 'login.html';
+      currentUser = user;
 
-        await auth.signInWithEmailAndPassword(email, password);
-        window.location.href = "feed.html";
-      } catch (error) {
-        alert(error.message);
+      const userDoc = await db.collection("users").doc(user.uid).get();
+      isVendor = userDoc.exists && userDoc.data().accountType === "vendor";
+
+      document.getElementById('dashboardBtn').onclick = () =>
+        location.href = isVendor ? 'vendor-dashboard.html' : 'dashboard.html';
+
+      if (isVendor) {
+        document.getElementById('postBtnContainer').classList.remove('hidden');
       }
+
+      loadFeed();
+      setupFilters();
     });
 
-    document.getElementById("forgotPassword").addEventListener("click", async () => {
-      const email = prompt("Enter your email to reset password:");
-      if (email) {
-        try {
-          await auth.sendPasswordResetEmail(email);
-          alert("Password reset email sent.");
-        } catch (error) {
-          alert(error.message);
+    function setupFilters() {
+      document.getElementById("sortFilter").addEventListener("change", loadFeed);
+      document.getElementById("cityFilter").addEventListener("change", loadFeed);
+      document.getElementById("prevPage").addEventListener("click", () => {
+        if (page > 1) {
+          page--;
+          renderFeed();
         }
+      });
+      document.getElementById("nextPage").addEventListener("click", () => {
+        if (page * pageSize < posts.length) {
+          page++;
+          renderFeed();
+        }
+      });
+    }
+
+    function loadFeed() {
+      db.collection("posts").onSnapshot(snapshot => {
+        posts = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        renderFeed();
+      });
+    }
+
+    function renderFeed() {
+      const feed = document.getElementById("feed");
+      feed.innerHTML = "";
+
+      const sortBy = document.getElementById("sortFilter").value;
+      const city = document.getElementById("cityFilter").value;
+
+      let filtered = [...posts];
+      if (city) {
+        filtered = filtered.filter(post => post.city === city);
       }
-    });
+
+      filtered.sort((a, b) => (b[sortBy] || 0) - (a[sortBy] || 0));
+
+      const start = (page - 1) * pageSize;
+      const end = start + pageSize;
+      const currentPage = filtered.slice(start, end);
+
+      document.getElementById("pageInfo").innerText = `Page ${page} of ${Math.ceil(filtered.length / pageSize)}`;
+
+      currentPage.forEach(post => {
+        const el = document.createElement("div");
+        el.className = "bg-white p-4 rounded shadow";
+        el.innerHTML = `
+          <div class="flex justify-between items-center">
+            <div>
+              <h2 class="text-lg font-semibold">${post.title}</h2>
+              <p class="text-sm text-gray-500">${post.city} • ${new Date(post.timestamp?.toDate?.() || Date.now()).toLocaleString()}</p>
+              ${post.isVendor ? '<span class="text-xs bg-yellow-500 text-white px-2 py-1 rounded-full">Vendor</span>' : ''}
+            </div>
+            <button onclick="viewPost('${post.id}')" class="text-blue-600 underline text-sm">View</button>
+          </div>
+          <p class="mt-2">${post.description || ''}</p>
+          <div class="flex justify-between mt-2 text-sm text-gray-600">
+            <span>👍 ${post.likes || 0}</span>
+            <span>👁️ ${post.views || 0}</span>
+          </div>
+        `;
+        feed.appendChild(el);
+      });
+    }
+
+    function viewPost(postId) {
+      window.location.href = `view-post.html?id=${postId}`;
+    }
   </script>
 </body>
 </html>
