@@ -2,132 +2,172 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Street Link — Feed</title>
   <script src="https://cdn.tailwindcss.com"></script>
-  <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-app-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-auth-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-firestore-compat.js"></script>
-  <script src="/firebase.js"></script>
+  <style>
+    .skeleton {
+      @apply animate-pulse bg-gray-200 h-48 rounded-lg;
+    }
+  </style>
 </head>
-<body class="bg-gray-100">
-  <div class="max-w-4xl mx-auto px-4 py-6">
-    <h1 class="text-3xl font-bold mb-4">Street Link Feed</h1>
+<body class="bg-gray-100 text-gray-900">
 
-    <div class="mb-4">
-      <label for="provinceFilter" class="block text-sm font-medium text-gray-700">Filter by Province</label>
-      <select id="provinceFilter" class="mt-1 block w-full border-gray-300 rounded-md shadow-sm">
+  <div class="p-4 bg-white shadow flex justify-between items-center">
+    <h1 class="text-xl font-bold">Street Link Feed</h1>
+    <div>
+      <select id="provinceFilter" class="border p-1 rounded">
         <option value="">All Provinces</option>
-        <option value="Gauteng">Gauteng</option>
-        <option value="Western Cape">Western Cape</option>
-        <option value="KwaZulu-Natal">KwaZulu-Natal</option>
-        <option value="Eastern Cape">Eastern Cape</option>
-        <!-- Add more provinces as needed -->
       </select>
-    </div>
-
-    <div id="feed">
-      <!-- Skeleton loaders -->
-      <div id="skeleton" class="space-y-4">
-        <div class="p-4 bg-white rounded shadow animate-pulse">
-          <div class="h-4 bg-gray-300 rounded w-3/4 mb-2"></div>
-          <div class="h-3 bg-gray-200 rounded w-1/2"></div>
-        </div>
-        <div class="p-4 bg-white rounded shadow animate-pulse">
-          <div class="h-4 bg-gray-300 rounded w-2/3 mb-2"></div>
-          <div class="h-3 bg-gray-200 rounded w-1/3"></div>
-        </div>
-      </div>
-    </div>
-
-    <div class="flex justify-between mt-6">
-      <button id="prevPage" class="bg-gray-200 px-4 py-2 rounded">Previous</button>
-      <button id="nextPage" class="bg-gray-200 px-4 py-2 rounded">Next</button>
+      <select id="cityFilter" class="border p-1 rounded">
+        <option value="">All Cities</option>
+      </select>
     </div>
   </div>
 
+  <div id="postContainer" class="p-4 space-y-4"></div>
+
+  <div id="pagination" class="flex justify-center mt-6 space-x-2">
+    <button id="prevBtn" class="px-4 py-2 bg-gray-200 rounded">Previous</button>
+    <button id="nextBtn" class="px-4 py-2 bg-gray-800 text-white rounded">Next</button>
+  </div>
+
+  <!-- Firebase SDKs -->
+  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-database-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-storage-compat.js"></script>
+
   <script>
-    const feedContainer = document.getElementById('feed');
-    const skeleton = document.getElementById('skeleton');
-    const provinceFilter = document.getElementById('provinceFilter');
+    const firebaseConfig = {
+      apiKey: "AIzaSyDEsYzVYNvSsKvgFk5cSa_7lWWdJtDc1gs",
+      authDomain: "online-mall-4422.firebaseapp.com",
+      databaseURL: "https://online-mall-4422-default-rtdb.firebaseio.com",
+      projectId: "online-mall-4422",
+      storageBucket: "online-mall-4422.appspot.com",
+      messagingSenderId: "947082232783",
+      appId: "1:947082232783:web:116206502e5fb38383c8ba",
+      measurementId: "G-LNTNZQBGL8"
+    };
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.firestore();
+  </script>
 
-    let lastVisible = null;
-    let firstVisible = null;
-    let queryLimit = 5;
-    let currentQuery = null;
+  <script>
+    const postContainer = document.getElementById("postContainer");
+    const provinceFilter = document.getElementById("provinceFilter");
+    const cityFilter = document.getElementById("cityFilter");
+    const prevBtn = document.getElementById("prevBtn");
+    const nextBtn = document.getElementById("nextBtn");
 
-    firebase.auth().onAuthStateChanged((user) => {
-      if (!user) return window.location.href = 'login.html';
-      loadPosts();
-    });
+    let allPosts = [];
+    let filteredPosts = [];
+    let currentPage = 1;
+    const postsPerPage = 5;
 
-    provinceFilter.addEventListener('change', loadPosts);
+    function showSkeletons() {
+      postContainer.innerHTML = "";
+      for (let i = 0; i < postsPerPage; i++) {
+        const skeleton = document.createElement("div");
+        skeleton.className = "skeleton";
+        postContainer.appendChild(skeleton);
+      }
+    }
 
-    function loadPosts(direction = 'initial') {
-      feedContainer.innerHTML = '';
-      skeleton.style.display = 'block';
+    function renderPosts() {
+      postContainer.innerHTML = "";
 
-      let ref = firebase.firestore().collection('posts');
+      const start = (currentPage - 1) * postsPerPage;
+      const end = start + postsPerPage;
+      const pagePosts = filteredPosts.slice(start, end);
 
-      const province = provinceFilter.value;
-      if (province) ref = ref.where('province', '==', province);
-      ref = ref.orderBy('timestamp', 'desc');
+      if (pagePosts.length === 0) {
+        postContainer.innerHTML = "<p>No posts found.</p>";
+        return;
+      }
 
-      if (direction === 'next' && lastVisible) ref = ref.startAfter(lastVisible);
-      if (direction === 'prev' && firstVisible) ref = ref.endBefore(firstVisible);
+      pagePosts.forEach(post => {
+        const div = document.createElement("div");
+        div.className = "bg-white rounded-lg shadow p-4";
 
-      ref.limit(queryLimit).get().then(snapshot => {
-        skeleton.style.display = 'none';
+        const imageHTML = post.imageURL
+          ? `<img loading="lazy" src="${post.imageURL}" alt="post image" class="w-full max-h-60 object-cover rounded mb-2">`
+          : "";
 
-        if (snapshot.empty) {
-          feedContainer.innerHTML = '<p class="text-gray-500">No posts found.</p>';
-          return;
-        }
+        div.innerHTML = `
+          ${imageHTML}
+          <h2 class="text-lg font-bold">${post.title}</h2>
+          <p class="text-sm text-gray-600">${post.description || ""}</p>
+          <div class="mt-2 flex justify-between text-sm">
+            <span>Likes: ${post.likes || 0}</span>
+            <button class="likeBtn text-blue-600 underline" data-id="${post.id}">Like</button>
+          </div>
+        `;
 
-        firstVisible = snapshot.docs[0];
-        lastVisible = snapshot.docs[snapshot.docs.length - 1];
-
-        snapshot.forEach(doc => {
-          const post = doc.data();
-          const postEl = document.createElement('div');
-          postEl.className = 'bg-white p-4 rounded shadow mb-4';
-
-          let imageHtml = '';
-          if (post.imageUrl) {
-            imageHtml = `<img loading="lazy" src="${post.imageUrl}" class="w-full rounded mb-2" alt="Post Image">`;
-          }
-
-          postEl.innerHTML = `
-            <h2 class="text-xl font-semibold">${post.title || 'Untitled Post'}</h2>
-            ${imageHtml}
-            <p class="text-sm text-gray-600 mt-1">${new Date(post.timestamp?.toDate?.() || post.timestamp).toLocaleString()}</p>
-            <div class="mt-2 flex items-center space-x-4">
-              <button onclick="likePost('${doc.id}')" class="text-blue-600">❤️ Like</button>
-              <span id="like-count-${doc.id}" class="text-gray-700 text-sm">0 likes</span>
-              <a href="view-post.html?id=${doc.id}" class="text-green-600">View Post</a>
-            </div>
-          `;
-
-          feedContainer.appendChild(postEl);
-
-          // Load like count
-          firebase.firestore().collection('posts').doc(doc.id).collection('likes').get().then(likeSnap => {
-            document.getElementById(`like-count-${doc.id}`).textContent = `${likeSnap.size} likes`;
-          });
-        });
+        postContainer.appendChild(div);
       });
     }
 
-    function likePost(postId) {
-      const user = firebase.auth().currentUser;
-      if (!user) return;
-
-      const likeRef = firebase.firestore().collection('posts').doc(postId).collection('likes').doc(user.uid);
-      likeRef.set({ liked: true });
+    async function fetchPosts() {
+      showSkeletons();
+      const snapshot = await db.collection("posts").orderBy("timestamp", "desc").get();
+      allPosts = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      updateFilters();
+      applyFilters();
     }
 
-    document.getElementById('nextPage').addEventListener('click', () => loadPosts('next'));
-    document.getElementById('prevPage').addEventListener('click', () => loadPosts('prev'));
+    function updateFilters() {
+      const provinces = [...new Set(allPosts.map(p => p.province).filter(Boolean))];
+      provinceFilter.innerHTML = `<option value="">All Provinces</option>` +
+        provinces.map(p => `<option value="${p}">${p}</option>`).join("");
+
+      const cities = [...new Set(allPosts.map(p => p.city).filter(Boolean))];
+      cityFilter.innerHTML = `<option value="">All Cities</option>` +
+        cities.map(c => `<option value="${c}">${c}</option>`).join("");
+    }
+
+    function applyFilters() {
+      const selectedProvince = provinceFilter.value;
+      const selectedCity = cityFilter.value;
+
+      filteredPosts = allPosts.filter(post =>
+        (!selectedProvince || post.province === selectedProvince) &&
+        (!selectedCity || post.city === selectedCity)
+      );
+
+      currentPage = 1;
+      renderPosts();
+    }
+
+    provinceFilter.addEventListener("change", applyFilters);
+    cityFilter.addEventListener("change", applyFilters);
+
+    prevBtn.onclick = () => {
+      if (currentPage > 1) {
+        currentPage--;
+        renderPosts();
+      }
+    };
+
+    nextBtn.onclick = () => {
+      if ((currentPage * postsPerPage) < filteredPosts.length) {
+        currentPage++;
+        renderPosts();
+      }
+    };
+
+    postContainer.addEventListener("click", async e => {
+      if (e.target.classList.contains("likeBtn")) {
+        const postId = e.target.getAttribute("data-id");
+        const postRef = db.collection("posts").doc(postId);
+        await postRef.update({ likes: firebase.firestore.FieldValue.increment(1) });
+        fetchPosts(); // Refresh likes
+      }
+    });
+
+    fetchPosts();
   </script>
+
 </body>
 </html>
