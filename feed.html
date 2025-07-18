@@ -195,26 +195,6 @@
     // --- LOAD POSTS with filters and pagination ---
     let unsubscribe = null;
 
-    function buildQuery() {
-      const postsRef = collection(db, 'posts');
-      let q = query(postsRef, orderBy('createdAt', 'desc'));
-
-      // Filters
-      if (provinceFilter.value) {
-        q = query(q, where('province', '==', provinceFilter.value));
-      }
-      if (cityFilter.value) {
-        q = query(q, where('city', '==', cityFilter.value));
-      }
-
-      // Pagination
-      q = query(q, limit(postsPerPage));
-      if (lastVisible && currentPage > 1) {
-        q = query(q, startAfter(lastVisible));
-      }
-      return q;
-    }
-
     async function loadPosts() {
       if (unsubscribe) unsubscribe();
       postsContainer.innerHTML = `
@@ -235,7 +215,7 @@
         q = query(q, orderBy('createdAt', 'desc'), startAfter(lastVisible), limit(postsPerPage));
       }
 
-      unsubscribe = onSnapshot(q, (snapshot) => {
+      unsubscribe = onSnapshot(q, async (snapshot) => {
         postsContainer.innerHTML = '';
         if (snapshot.empty) {
           postsContainer.innerHTML = '<p class="text-center text-gray-600">No posts found.</p>';
@@ -253,15 +233,39 @@
         pageStack.push(firstVisible);
 
         // Show posts
-        snapshot.docs.forEach(docSnap => {
+        for (const docSnap of snapshot.docs) {
           const post = docSnap.data();
           const id = docSnap.id;
+
+          // Fetch the user document of the poster to get businessName, profilePhotoURL
+          let posterData = {};
+          try {
+            const userDoc = await getDoc(doc(db, "users", post.uid));
+            if (userDoc.exists()) {
+              posterData = userDoc.data();
+            }
+          } catch (e) {
+            console.error("Failed to fetch poster data", e);
+          }
+
+          // Format timestamp nicely
+          let createdAtText = "Unknown date";
+          if (post.createdAt && post.createdAt.toDate) {
+            createdAtText = post.createdAt.toDate().toLocaleString();
+          }
 
           // Post card
           const card = document.createElement('div');
           card.className = "bg-white p-4 rounded-xl shadow relative";
 
           card.innerHTML = `
+            <div class="flex items-center gap-3 mb-2">
+              <img src="${posterData.profilePhotoURL || 'https://via.placeholder.com/48'}" alt="Profile Photo" class="w-12 h-12 rounded-full object-cover" />
+              <div>
+                <div class="font-semibold text-gray-800">${posterData.businessName || "Unknown Business"}</div>
+                <div class="text-xs text-gray-500">${createdAtText}</div>
+              </div>
+            </div>
             <h2 class="text-lg font-bold">${post.title}</h2>
             <p class="text-sm text-gray-600">${post.description}</p>
             ${post.imageURL ? `<img loading="lazy" src="${post.imageURL}" class="mt-2 rounded-lg max-h-60 w-full object-cover" alt="Post Image"/>` : ""}
@@ -279,7 +283,7 @@
             </div>
           `;
           postsContainer.appendChild(card);
-        });
+        }
 
         addPostEventListeners();
 
