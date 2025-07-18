@@ -2,21 +2,49 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Street Connect - Vendor Profile</title>
-  <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
-  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Vendor Profile</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore-compat.js"></script>
 </head>
-<body class="bg-gray-100 text-gray-900">
-  <div class="max-w-5xl mx-auto py-6 px-4">
-    <div id="vendorInfo" class="bg-white rounded shadow p-4 mb-6"></div>
-    <h2 class="text-xl font-bold mb-2">Posts</h2>
-    <div id="vendorPosts" class="grid grid-cols-1 md:grid-cols-2 gap-4"></div>
+<body class="bg-gray-50 text-gray-900">
+  <!-- Top navbar -->
+  <nav class="bg-white shadow p-4 flex justify-between items-center">
+    <h1 class="text-xl font-bold">Street Link</h1>
+    <div class="space-x-4">
+      <a href="feed.html" class="text-blue-500 hover:underline">Feed</a>
+      <a href="inbox.html" class="text-blue-500 hover:underline">Inbox</a>
+      <a href="settings.html" class="text-blue-500 hover:underline">Settings</a>
+    </div>
+  </nav>
+
+  <!-- Profile Section -->
+  <div class="max-w-4xl mx-auto mt-6 p-4 bg-white rounded shadow">
+    <div class="flex items-center space-x-4">
+      <img id="vendorPhoto" class="w-24 h-24 rounded-full object-cover" src="" alt="Vendor Photo">
+      <div>
+        <h2 id="vendorName" class="text-2xl font-bold"></h2>
+        <p id="vendorDesc" class="text-gray-600"></p>
+        <p id="avgRating" class="mt-1 text-yellow-500 font-medium"></p>
+        <div class="mt-2 space-x-2">
+          <button id="followBtn" class="bg-blue-500 text-white px-4 py-1 rounded">Follow</button>
+          <button onclick="rateVendor()" class="bg-yellow-500 text-white px-4 py-1 rounded">Rate</button>
+          <button onclick="messageVendor()" class="bg-green-500 text-white px-4 py-1 rounded">Message</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Vendor Posts -->
+  <div class="max-w-4xl mx-auto mt-6 p-4 bg-white rounded shadow">
+    <h3 class="text-xl font-bold mb-4">Posts</h3>
+    <div id="vendorPosts" class="grid md:grid-cols-2 gap-4"></div>
   </div>
 
   <script>
+    // Firebase Config
     const firebaseConfig = {
       apiKey: "AIzaSyDEsYzVYNvSsKvgFk5cSa_7lWWdJtDc1gs",
       authDomain: "online-mall-4422.firebaseapp.com",
@@ -27,100 +55,120 @@
       appId: "1:947082232783:web:116206502e5fb38383c8ba",
       measurementId: "G-LNTNZQBGL8"
     };
-
     firebase.initializeApp(firebaseConfig);
     const db = firebase.firestore();
     const auth = firebase.auth();
 
-    const params = new URLSearchParams(window.location.search);
-    const vendorId = params.get("vendor");
-    let currentUser = null;
+    const urlParams = new URLSearchParams(window.location.search);
+    const vendorId = urlParams.get("uid");
 
-    auth.onAuthStateChanged(user => {
-      currentUser = user;
-      loadVendorProfile();
-    });
+    const vendorName = document.getElementById("vendorName");
+    const vendorDesc = document.getElementById("vendorDesc");
+    const vendorPhoto = document.getElementById("vendorPhoto");
+    const avgRating = document.getElementById("avgRating");
+    const vendorPosts = document.getElementById("vendorPosts");
+    const followBtn = document.getElementById("followBtn");
 
-    async function loadVendorProfile() {
-      const doc = await db.collection("users").doc(vendorId).get();
-      if (!doc.exists) return;
-      const vendor = doc.data();
+    let currentUser;
 
-      const ratingsSnapshot = await db.collection("ratings")
-        .where("vendorId", "==", vendorId).get();
-      let total = 0, count = 0;
-      ratingsSnapshot.forEach(r => {
-        total += r.data().rating;
-        count++;
-      });
-      const avgRating = count ? (total / count).toFixed(1) : "N/A";
-
-      const followersSnapshot = await db.collection("follows")
-        .where("vendorId", "==", vendorId).get();
-      const followersCount = followersSnapshot.size;
-
-      let isFollowing = false;
-      if (currentUser) {
-        const followCheck = await db.collection("follows")
-          .where("followerId", "==", currentUser.uid)
-          .where("vendorId", "==", vendorId).get();
-        isFollowing = !followCheck.empty;
-      }
-
-      document.getElementById("vendorInfo").innerHTML = `
-        <div class="flex items-center space-x-4">
-          <img src="${vendor.imageURL || 'https://via.placeholder.com/80'}" alt="Profile" class="w-20 h-20 rounded-full object-cover" />
-          <div>
-            <h2 class="text-2xl font-bold">${vendor.businessName || vendor.fullName}</h2>
-            <p class="text-sm text-gray-600">Category: ${vendor.category || 'General'} | Province: ${vendor.province || ''}</p>
-            <p class="text-sm">⭐ ${avgRating} | ${followersCount} Followers</p>
-            <div class="flex gap-3 mt-2">
-              ${currentUser ? `<button onclick="toggleFollow()" class="px-3 py-1 text-sm rounded ${isFollowing ? 'bg-red-500 text-white' : 'bg-blue-500 text-white'}">${isFollowing ? 'Unfollow' : 'Follow'}</button>` : ''}
-              <a href="chat.html?user=${vendorId}" class="text-purple-600 underline text-sm">Message</a>
-              <a href="ratings.html?vendor=${vendorId}" class="text-yellow-600 underline text-sm">Rate</a>
-            </div>
-          </div>
-        </div>
-      `;
-
-      const posts = await db.collection("posts")
-        .where("vendorId", "==", vendorId)
-        .orderBy("timestamp", "desc")
-        .get();
-
-      const container = document.getElementById("vendorPosts");
-      if (posts.empty) {
-        container.innerHTML = "<p>No posts available.</p>";
+    auth.onAuthStateChanged(async (user) => {
+      if (!user) {
+        alert("Please sign in first.");
+        window.location.href = "login.html";
         return;
       }
+      currentUser = user;
+      loadVendorProfile();
+      loadVendorPosts();
+      checkIfFollowing();
+      loadAverageRating();
+    });
 
-      container.innerHTML = posts.docs.map(doc => {
-        const post = doc.data();
-        return `
-          <div class="bg-white rounded shadow p-4">
-            <img src="${post.imageURL}" class="w-full h-48 object-cover rounded mb-2" />
-            <h3 class="font-semibold text-lg">${post.title}</h3>
-            <p class="text-sm text-gray-600">${post.description.slice(0, 100)}...</p>
-            <a href="view-post.html?id=${doc.id}" class="text-blue-600 underline text-sm mt-1 inline-block">View Post</a>
-          </div>
-        `;
-      }).join("");
+    function loadVendorProfile() {
+      db.collection("users").doc(vendorId).get().then((doc) => {
+        if (doc.exists) {
+          const data = doc.data();
+          vendorName.textContent = data.name || "Vendor";
+          vendorDesc.textContent = data.description || "";
+          vendorPhoto.src = data.photoURL || "https://via.placeholder.com/150";
+        }
+      });
     }
 
-    async function toggleFollow() {
-      if (!currentUser) return alert("You must be logged in to follow vendors");
-      const followRef = db.collection("follows");
-      const query = await followRef
+    function loadVendorPosts() {
+      db.collection("posts").where("uid", "==", vendorId)
+        .orderBy("timestamp", "desc")
+        .onSnapshot(snapshot => {
+          vendorPosts.innerHTML = "";
+          snapshot.forEach(doc => {
+            const post = doc.data();
+            vendorPosts.innerHTML += `
+              <div class="border rounded p-3 bg-gray-50">
+                <img src="${post.imageURL}" alt="Post" class="w-full h-40 object-cover rounded mb-2">
+                <h4 class="text-lg font-bold">${post.title}</h4>
+                <p class="text-sm text-gray-600">${post.description}</p>
+              </div>
+            `;
+          });
+        });
+    }
+
+    function loadAverageRating() {
+      db.collection("ratings").where("vendorId", "==", vendorId)
+        .onSnapshot(snapshot => {
+          let sum = 0, count = 0;
+          snapshot.forEach(doc => {
+            sum += doc.data().rating;
+            count++;
+          });
+          const avg = count > 0 ? (sum / count).toFixed(1) : "N/A";
+          avgRating.textContent = `⭐ ${avg} (${count} ratings)`;
+        });
+    }
+
+    function checkIfFollowing() {
+      db.collection("follows")
         .where("followerId", "==", currentUser.uid)
         .where("vendorId", "==", vendorId)
-        .get();
+        .get()
+        .then(snapshot => {
+          if (!snapshot.empty) {
+            followBtn.textContent = "Following";
+            followBtn.disabled = true;
+          } else {
+            followBtn.onclick = followVendor;
+          }
+        });
+    }
 
-      if (!query.empty) {
-        await followRef.doc(query.docs[0].id).delete();
+    function followVendor() {
+      db.collection("follows").add({
+        followerId: currentUser.uid,
+        vendorId,
+        timestamp: firebase.firestore.FieldValue.serverTimestamp()
+      }).then(() => {
+        followBtn.textContent = "Following";
+        followBtn.disabled = true;
+      });
+    }
+
+    function rateVendor() {
+      const rating = prompt("Rate this vendor out of 5:");
+      const rateNum = parseFloat(rating);
+      if (rateNum >= 1 && rateNum <= 5) {
+        db.collection("ratings").add({
+          vendorId,
+          userId: currentUser.uid,
+          rating: rateNum,
+          timestamp: firebase.firestore.FieldValue.serverTimestamp()
+        });
       } else {
-        await followRef.add({ followerId: currentUser.uid, vendorId });
+        alert("Invalid rating.");
       }
-      loadVendorProfile();
+    }
+
+    function messageVendor() {
+      window.location.href = `chat.html?uid=${vendorId}`;
     }
   </script>
 </body>
