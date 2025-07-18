@@ -86,7 +86,8 @@
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
     import {
       getFirestore, collection, query, orderBy, limit, startAfter, where,
-      onSnapshot, doc, getDoc, updateDoc, deleteDoc, addDoc, serverTimestamp
+      onSnapshot, doc, getDoc, updateDoc, deleteDoc, addDoc, serverTimestamp,
+      setDoc, increment
     } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
     import {
       getAuth, onAuthStateChanged
@@ -303,13 +304,13 @@
             return;
           }
 
-          // Update like count and add like doc
-          await updateDoc(postRef, { likes: (await getDoc(postRef)).data().likes + 1 });
+          // Update like count atomically and add like doc
           await setDoc(userLikeDoc, {
             uid: currentUser.uid,
             postId,
             timestamp: serverTimestamp()
           });
+          await updateDoc(postRef, { likes: increment(1) });
 
           // Update UI immediately
           const likeCountEl = document.getElementById(`like-count-${postId}`);
@@ -340,7 +341,6 @@
     prevBtn.onclick = () => {
       if (currentPage <= 1) return;
       currentPage--;
-      // For simplicity, reset lastVisible on going back (better approach is cursor stack)
       if (currentPage === 1) lastVisible = null;
       loadPosts();
     };
@@ -376,29 +376,4 @@
         imageURL = await getDownloadURL(storageReference);
       }
 
-      const newPost = {
-        uid: currentUser.uid,
-        title: postTitleInput.value.trim(),
-        description: postDescriptionInput.value.trim(),
-        imageURL,
-        createdAt: serverTimestamp(),
-        likes: 0,
-        views: 0,
-        province: postProvinceInput.value.trim() || "",
-        city: postCityInput.value.trim() || ""
-      };
-
-      try {
-        await addDoc(collection(db, "posts"), newPost);
-        alert("Post uploaded successfully!");
-        postUploadForm.reset();
-        loadPosts();
-      } catch (error) {
-        alert("Error uploading post: " + error.message);
-      }
-    };
-
-  </script>
-
-</body>
-</html>
+      const newPost =
