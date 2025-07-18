@@ -50,28 +50,19 @@
     async function loadChats() {
       chatList.innerHTML = `<p>Loading your chats...</p>`;
 
-      const chatsSnapshot = await db.collection("chats").get();
-      const userChats = [];
+      const chatsSnapshot = await db.collection("chats")
+        .where("users", "array-contains", currentUser.uid)
+        .get();
 
-      chatsSnapshot.forEach(chatDoc => {
-        const chatData = chatDoc.data();
-        const users = chatData.users || [];
-        if (users.includes(currentUser.uid)) {
-          userChats.push({
-            id: chatDoc.id,
-            users: users
-          });
-        }
-      });
-
-      if (userChats.length === 0) {
+      if (chatsSnapshot.empty) {
         chatList.innerHTML = `<p class="text-gray-600">No chats found.</p>`;
         return;
       }
 
       chatList.innerHTML = "";
-      for (const chat of userChats) {
-        const partnerId = chat.users.find(uid => uid !== currentUser.uid);
+      for (const chatDoc of chatsSnapshot.docs) {
+        const chatData = chatDoc.data();
+        const partnerId = chatData.users.find(uid => uid !== currentUser.uid);
 
         try {
           const userDoc = await db.collection("users").doc(partnerId).get();
