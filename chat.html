@@ -1,10 +1,10 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Street Connect - Chat</title>
-  <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet" />
   <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
@@ -17,8 +17,16 @@
     <div id="chatBox" class="bg-white p-4 rounded shadow h-96 overflow-y-auto space-y-2 mb-4"></div>
 
     <form id="chatForm" class="flex items-center space-x-2">
-      <input type="text" id="messageInput" placeholder="Type your message..." class="flex-1 p-2 border rounded">
-      <button type="submit" class="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700">Send</button>
+      <input
+        type="text"
+        id="messageInput"
+        placeholder="Type your message..."
+        class="flex-1 p-2 border rounded"
+        autocomplete="off"
+      />
+      <button type="submit" class="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700">
+        Send
+      </button>
     </form>
   </div>
 
@@ -31,15 +39,17 @@
       storageBucket: "online-mall-4422.appspot.com",
       messagingSenderId: "947082232783",
       appId: "1:947082232783:web:116206502e5fb38383c8ba",
-      measurementId: "G-LNTNZQBGL8"
+      measurementId: "G-LNTNZQBGL8",
     };
 
     firebase.initializeApp(firebaseConfig);
     const auth = firebase.auth();
     const db = firebase.firestore();
 
+    // Fix here: get uid param (adjust if your URL param is different)
     const urlParams = new URLSearchParams(window.location.search);
-    const vendorId = urlParams.get('vendor');
+    const vendorId = urlParams.get("uid"); // use 'uid' if your URL param is like ?uid=...
+
     let currentUser;
 
     const chatBox = document.getElementById("chatBox");
@@ -47,8 +57,11 @@
     const chatForm = document.getElementById("chatForm");
     const vendorNameEl = document.getElementById("vendorName");
 
-    // Fetch and show vendor's business name
     async function fetchVendorName() {
+      if (!vendorId) {
+        vendorNameEl.textContent = "Invalid vendor";
+        return;
+      }
       try {
         const doc = await db.collection("users").doc(vendorId).get();
         if (doc.exists) {
@@ -63,43 +76,89 @@
       }
     }
 
-    auth.onAuthStateChanged(async user => {
+    auth.onAuthStateChanged(async (user) => {
       if (!user) return window.location.href = "login.html";
       currentUser = user;
-      fetchVendorName();
+
+      await fetchVendorName();
+
       listenForMessages();
     });
 
     function listenForMessages() {
+      if (!vendorId || !currentUser) return;
+
+      // Use deterministic chatId: sorted UIDs joined by _
       const chatId = [currentUser.uid, vendorId].sort().join("_");
-      db.collection("chats").doc(chatId).collection("messages")
+
+      db.collection("chats")
+        .doc(chatId)
+        .collection("messages")
         .orderBy("timestamp")
-        .onSnapshot(snapshot => {
-          chatBox.innerHTML = "";
-          snapshot.forEach(doc => {
-            const msg = doc.data();
-            const isOwn = msg.sender === currentUser.uid;
-            const msgDiv = document.createElement("div");
-            msgDiv.className = `p-2 rounded max-w-sm ${isOwn ? 'bg-blue-200 self-end ml-auto' : 'bg-gray-200'}`;
-            msgDiv.innerText = msg.text;
-            chatBox.appendChild(msgDiv);
-          });
-          chatBox.scrollTop = chatBox.scrollHeight;
-        });
+        .onSnapshot(
+          (snapshot) => {
+            chatBox.innerHTML = "";
+            snapshot.forEach((doc) => {
+              const msg = doc.data();
+              const isOwn = msg.sender === currentUser.uid;
+              const msgDiv = document.createElement("div");
+              msgDiv.className = `p-2 rounded max-w-sm ${
+                isOwn ? "bg-blue-200 self-end ml-auto" : "bg-gray-200"
+              }`;
+              msgDiv.innerText = msg.text;
+              chatBox.appendChild(msgDiv);
+            });
+            chatBox.scrollTop = chatBox.scrollHeight;
+          },
+          (error) => {
+            console.error("Listen failed:", error);
+            chatBox.innerHTML =
+              '<p class="text-red-600">Failed to load messages.</p>';
+          }
+        );
     }
 
     chatForm.addEventListener("submit", async (e) => {
       e.preventDefault();
+      if (!vendorId || !currentUser) return;
+
       const text = messageInput.value.trim();
       if (!text) return;
+
       const chatId = [currentUser.uid, vendorId].sort().join("_");
-      await db.collection("chats").doc(chatId).collection("messages").add({
-        sender: currentUser.uid,
-        receiver: vendorId,
-        text,
-        timestamp: firebase.firestore.FieldValue.serverTimestamp()
-      });
-      messageInput.value = "";
+
+      // Ensure chat document exists and includes both users
+      const chatRef = db.collection("chats").doc(chatId);
+
+      try {
+        await db.runTransaction(async (transaction) => {
+          const chatDoc = await transaction.get(chatRef);
+          if (!chatDoc.exists) {
+            transaction.set(chatRef, {
+              users: [currentUser.uid, vendorId],
+              lastMessage: text,
+              timestamp: firebase.firestore.FieldValue.serverTimestamp(),
+            });
+          } else {
+            transaction.update(chatRef, {
+              lastMessage: text,
+              timestamp: firebase.firestore.FieldValue.serverTimestamp(),
+            });
+          }
+
+          const messagesRef = chatRef.collection("messages").doc();
+          transaction.set(messagesRef, {
+            sender: currentUser.uid,
+            receiver: vendorId,
+            text,
+            timestamp: firebase.firestore.FieldValue.serverTimestamp(),
+          });
+        });
+
+        messageInput.value = "";
+      } catch (err) {
+        console.error("Error sending message:", err);
+      }
     });
   </script>
 </body>
