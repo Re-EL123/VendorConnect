@@ -49,7 +49,9 @@
   <!-- Firebase + App Script -->
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-    import { getFirestore, doc, getDoc, onSnapshot, updateDoc, increment, deleteDoc, setDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+    import {
+      getFirestore, doc, getDoc, onSnapshot, updateDoc, increment, deleteDoc, setDoc, serverTimestamp
+    } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
     import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 
     const firebaseConfig = {
@@ -84,15 +86,30 @@
     const messageBtn = document.getElementById('message-btn');
 
     let currentUser;
+    let postRef;
 
     onAuthStateChanged(auth, async (user) => {
       if (!user) return window.location.href = "login.html";
       currentUser = user;
 
-      const postRef = doc(db, "posts", postId);
+      if (!postId) {
+        alert("No post ID provided");
+        window.location.href = "feed.html";
+        return;
+      }
 
+      postRef = doc(db, "posts", postId);
+
+      // Increment view count atomically
+      await updateDoc(postRef, { views: increment(1) });
+
+      // Real-time post data listener
       onSnapshot(postRef, async (docSnap) => {
-        if (!docSnap.exists()) return;
+        if (!docSnap.exists()) {
+          alert("Post not found");
+          window.location.href = "feed.html";
+          return;
+        }
 
         const post = docSnap.data();
 
@@ -101,9 +118,11 @@
         postImage.src = post.imageURL || '';
         likeCount.textContent = post.likes || 0;
 
-        // Vendor edit/delete
+        // Vendor edit/delete if own post
         if (post.uid === user.uid) {
           vendorActions.classList.remove("hidden");
+        } else {
+          vendorActions.classList.add("hidden");
         }
 
         messageBtn.href = `chat.html?uid=${post.uid}`;
@@ -126,14 +145,18 @@
         const likeDoc = doc(db, "likes", likeId);
         const existing = await getDoc(likeDoc);
 
-        if (!existing.exists()) {
-          await setDoc(likeDoc, {
-            uid: user.uid,
-            postId,
-            timestamp: serverTimestamp()
-          });
-          await updateDoc(postRef, { likes: increment(1) });
+        if (existing.exists()) {
+          alert("You already liked this post.");
+          return;
         }
+
+        await setDoc(likeDoc, {
+          uid: user.uid,
+          postId,
+          timestamp: serverTimestamp()
+        });
+
+        await updateDoc(postRef, { likes: increment(1) });
       };
 
       ratingStars.forEach(star => {
