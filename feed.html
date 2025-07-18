@@ -376,4 +376,29 @@
         imageURL = await getDownloadURL(storageReference);
       }
 
-      const newPost =
+      const newPost = {
+        uid: currentUser.uid,
+        title: postTitleInput.value.trim(),
+        description: postDescriptionInput.value.trim(),
+        imageURL,
+        createdAt: serverTimestamp(),
+        likes: 0,
+        views: 0,
+        province: postProvinceInput.value.trim() || "",
+        city: postCityInput.value.trim() || ""
+      };
+
+      try {
+        await addDoc(collection(db, "posts"), newPost);
+        alert("Post uploaded successfully!");
+        postUploadForm.reset();
+        loadPosts();
+      } catch (error) {
+        alert("Error uploading post: " + error.message);
+      }
+    };
+
+  </script>
+
+</body>
+</html>
