@@ -11,7 +11,9 @@
 </head>
 <body class="bg-gray-100 text-gray-900">
   <div class="max-w-3xl mx-auto py-6 px-4">
-    <h1 class="text-2xl font-bold mb-4">Chat with Vendor</h1>
+    <h1 class="text-2xl font-bold mb-1">Chat with Vendor</h1>
+    <h2 id="vendorName" class="text-lg text-gray-600 mb-4"></h2>
+
     <div id="chatBox" class="bg-white p-4 rounded shadow h-96 overflow-y-auto space-y-2 mb-4"></div>
 
     <form id="chatForm" class="flex items-center space-x-2">
@@ -43,10 +45,28 @@
     const chatBox = document.getElementById("chatBox");
     const messageInput = document.getElementById("messageInput");
     const chatForm = document.getElementById("chatForm");
+    const vendorNameEl = document.getElementById("vendorName");
+
+    // Fetch and show vendor's business name
+    async function fetchVendorName() {
+      try {
+        const doc = await db.collection("users").doc(vendorId).get();
+        if (doc.exists) {
+          const data = doc.data();
+          vendorNameEl.textContent = data.businessName || "Unknown Business";
+        } else {
+          vendorNameEl.textContent = "Vendor Not Found";
+        }
+      } catch (err) {
+        vendorNameEl.textContent = "Error loading vendor";
+        console.error("Error fetching vendor:", err);
+      }
+    }
 
     auth.onAuthStateChanged(async user => {
       if (!user) return window.location.href = "login.html";
       currentUser = user;
+      fetchVendorName();
       listenForMessages();
     });
 
