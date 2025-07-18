@@ -1,8 +1,8 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Street Connect - Inbox</title>
   <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
   <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
@@ -37,44 +37,60 @@
     let currentUser;
 
     auth.onAuthStateChanged(async user => {
-      if (!user) return window.location.href = "login.html";
+      if (!user) return (window.location.href = "login.html");
       currentUser = user;
-      loadChats();
+      try {
+        await loadChats();
+      } catch (err) {
+        console.error("Error loading chats:", err.message);
+        chatList.innerHTML = `<p class="text-red-600">Failed to load chats: ${err.message}</p>`;
+      }
     });
 
     async function loadChats() {
-      chatList.innerHTML = "<p>No messages found yet.</p>";
+      chatList.innerHTML = `<p>Loading your chats...</p>`;
 
       const chatsSnapshot = await db.collection("chats").get();
       const userChats = [];
 
       chatsSnapshot.forEach(chatDoc => {
-        if (chatDoc.id.includes(currentUser.uid)) {
-          userChats.push(chatDoc.id);
+        const chatData = chatDoc.data();
+        const users = chatData.users || [];
+        if (users.includes(currentUser.uid)) {
+          userChats.push({
+            id: chatDoc.id,
+            users: users
+          });
         }
       });
 
-      if (userChats.length === 0) return;
+      if (userChats.length === 0) {
+        chatList.innerHTML = `<p class="text-gray-600">No chats found.</p>`;
+        return;
+      }
 
       chatList.innerHTML = "";
-      for (const chatId of userChats) {
-        const ids = chatId.split("_");
-        const partnerId = ids[0] === currentUser.uid ? ids[1] : ids[0];
+      for (const chat of userChats) {
+        const partnerId = chat.users.find(uid => uid !== currentUser.uid);
 
-        const userDoc = await db.collection("users").doc(partnerId).get();
-        const userData = userDoc.data();
+        try {
+          const userDoc = await db.collection("users").doc(partnerId).get();
+          const userData = userDoc.data();
 
-        const chatDiv = document.createElement("div");
-        chatDiv.className = "bg-white p-4 rounded shadow flex items-center justify-between";
-        chatDiv.innerHTML = `
-          <div>
-            <p class="font-semibold">${userData.businessName || userData.fullName || "User"}</p>
-            <p class="text-sm text-gray-600">${userData.phone}</p>
-          </div>
-          <a href="chat.html?vendor=${partnerId}" class="text-blue-600 underline">Open Chat</a>
-        `;
+          const chatDiv = document.createElement("div");
+          chatDiv.className = "bg-white p-4 rounded shadow flex items-center justify-between";
+          chatDiv.innerHTML = `
+            <div>
+              <p class="font-semibold">${userData?.businessName || userData?.fullName || "User"}</p>
+              <p class="text-sm text-gray-600">${userData?.phone || ""}</p>
+            </div>
+            <a href="chat.html?vendor=${partnerId}" class="text-blue-600 underline">Open Chat</a>
+          `;
 
-        chatList.appendChild(chatDiv);
+          chatList.appendChild(chatDiv);
+        } catch (error) {
+          console.warn("Failed to fetch user for chat:", error);
+        }
       }
     }
   </script>
