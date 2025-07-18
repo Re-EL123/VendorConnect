@@ -50,6 +50,7 @@
     async function loadChats() {
       chatList.innerHTML = `<p>Loading your chats...</p>`;
 
+      // Query chats where current user UID is in the 'users' array
       const chatsSnapshot = await db.collection("chats")
         .where("users", "array-contains", currentUser.uid)
         .get();
@@ -62,9 +63,11 @@
       chatList.innerHTML = "";
       for (const chatDoc of chatsSnapshot.docs) {
         const chatData = chatDoc.data();
+        // Find the other participant in the chat
         const partnerId = chatData.users.find(uid => uid !== currentUser.uid);
 
         try {
+          // Get the partner's user document
           const userDoc = await db.collection("users").doc(partnerId).get();
           const userData = userDoc.data();
 
