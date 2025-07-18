@@ -46,9 +46,9 @@
     const auth = firebase.auth();
     const db = firebase.firestore();
 
-    // Fix here: get uid param (adjust if your URL param is different)
+    // Get vendor ID from URL param (adjust param name if needed)
     const urlParams = new URLSearchParams(window.location.search);
-    const vendorId = urlParams.get("uid"); // use 'uid' if your URL param is like ?uid=...
+    const vendorId = urlParams.get("uid");
 
     let currentUser;
 
@@ -80,6 +80,12 @@
       if (!user) return window.location.href = "login.html";
       currentUser = user;
 
+      if (!vendorId || vendorId === currentUser.uid) {
+        alert("Invalid chat partner");
+        window.location.href = "inbox.html";
+        return;
+      }
+
       await fetchVendorName();
 
       listenForMessages();
@@ -88,7 +94,6 @@
     function listenForMessages() {
       if (!vendorId || !currentUser) return;
 
-      // Use deterministic chatId: sorted UIDs joined by _
       const chatId = [currentUser.uid, vendorId].sort().join("_");
 
       db.collection("chats")
@@ -126,8 +131,6 @@
       if (!text) return;
 
       const chatId = [currentUser.uid, vendorId].sort().join("_");
-
-      // Ensure chat document exists and includes both users
       const chatRef = db.collection("chats").doc(chatId);
 
       try {
