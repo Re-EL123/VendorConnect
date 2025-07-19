@@ -14,7 +14,9 @@
     <h1 class="text-2xl font-bold mb-1">Chat with Vendor</h1>
     <h2 id="vendorName" class="text-lg text-gray-600 mb-4"></h2>
 
-    <div id="chatBox" class="bg-white p-4 rounded shadow h-96 overflow-y-auto space-y-2 mb-4"></div>
+    <div id="chatBox" class="bg-white p-4 rounded shadow h-96 overflow-y-auto space-y-2 mb-4">
+      <p class="text-gray-500 text-center">Loading messages...</p>
+    </div>
 
     <form id="chatForm" class="flex items-center space-x-2">
       <input
@@ -46,7 +48,6 @@
     const auth = firebase.auth();
     const db = firebase.firestore();
 
-    // Get vendor ID from URL param (adjust param name if needed)
     const urlParams = new URLSearchParams(window.location.search);
     const vendorId = urlParams.get("uid");
 
@@ -87,7 +88,6 @@
       }
 
       await fetchVendorName();
-
       listenForMessages();
     });
 
@@ -103,6 +103,11 @@
         .onSnapshot(
           (snapshot) => {
             chatBox.innerHTML = "";
+            if (snapshot.empty) {
+              chatBox.innerHTML = '<p class="text-center text-gray-500">No messages yet.</p>';
+              return;
+            }
+
             snapshot.forEach((doc) => {
               const msg = doc.data();
               const isOwn = msg.sender === currentUser.uid;
@@ -117,8 +122,7 @@
           },
           (error) => {
             console.error("Listen failed:", error);
-            chatBox.innerHTML =
-              '<p class="text-red-600">Failed to load messages.</p>';
+            chatBox.innerHTML = '<p class="text-red-600 text-center">Error loading messages. Check your permissions.</p>';
           }
         );
     }
