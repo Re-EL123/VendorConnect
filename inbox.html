@@ -10,8 +10,8 @@
   <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
 </head>
 <body class="bg-gray-100 text-gray-900">
-  <div class="max-w-3xl mx-auto py-6 px-4">
-    <h1 class="text-2xl font-bold mb-4">Inbox</h1>
+  <div class="max-w-3xl mx-auto py-8 px-4">
+    <h1 class="text-3xl font-bold mb-6">Inbox</h1>
     <div id="chatList" class="space-y-4">
       <p>Loading chats...</p>
     </div>
@@ -37,12 +37,16 @@
     let currentUser;
 
     auth.onAuthStateChanged(async user => {
-      if (!user) return (window.location.href = "login.html");
+      if (!user) {
+        window.location.href = "login.html";
+        return;
+      }
+
       currentUser = user;
       try {
         await loadChats();
       } catch (err) {
-        console.error("Error loading chats:", err.message);
+        console.error("Error loading chats:", err);
         chatList.innerHTML = `<p class="text-red-600">Failed to load chats: ${err.message}</p>`;
       }
     });
@@ -50,37 +54,37 @@
     async function loadChats() {
       chatList.innerHTML = `<p>Loading your chats...</p>`;
 
-      const chatsSnapshot = await db.collection("chats")
-        .where("users", "array-contains", currentUser.uid)
-        .get();
+      const chatsRef = db.collection("chats").where("users", "array-contains", currentUser.uid);
+      const snapshot = await chatsRef.get();
 
-      if (chatsSnapshot.empty) {
+      if (snapshot.empty) {
         chatList.innerHTML = `<p class="text-gray-600">No chats found.</p>`;
         return;
       }
 
       chatList.innerHTML = "";
-      for (const chatDoc of chatsSnapshot.docs) {
-        const chatData = chatDoc.data();
-        const partnerId = chatData.users.find(uid => uid !== currentUser.uid);
+      for (const doc of snapshot.docs) {
+        const chat = doc.data();
+        const partnerId = chat.users.find(uid => uid !== currentUser.uid);
 
         try {
-          const userDoc = await db.collection("users").doc(partnerId).get();
-          const userData = userDoc.data();
+          const partnerDoc = await db.collection("users").doc(partnerId).get();
+          const partner = partnerDoc.data();
 
-          const chatDiv = document.createElement("div");
-          chatDiv.className = "bg-white p-4 rounded shadow flex items-center justify-between";
-          chatDiv.innerHTML = `
+          const chatItem = document.createElement("div");
+          chatItem.className = "bg-white p-4 rounded shadow flex items-center justify-between";
+
+          chatItem.innerHTML = `
             <div>
-              <p class="font-semibold">${userData?.businessName || userData?.fullName || "User"}</p>
-              <p class="text-sm text-gray-600">${userData?.phone || ""}</p>
+              <p class="font-semibold">${partner?.businessName || partner?.fullName || "User"}</p>
+              <p class="text-sm text-gray-600">${partner?.phone || ""}</p>
             </div>
             <a href="chat.html?vendor=${partnerId}" class="text-blue-600 underline">Open Chat</a>
           `;
 
-          chatList.appendChild(chatDiv);
-        } catch (error) {
-          console.warn("Failed to fetch user for chat:", error);
+          chatList.appendChild(chatItem);
+        } catch (err) {
+          console.warn("Could not load chat partner:", err);
         }
       }
     }
