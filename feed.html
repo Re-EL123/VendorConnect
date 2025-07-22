@@ -2,106 +2,177 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>Street Connect Mzansi — Feed</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <!-- Bootstrap (optional, for layout and style) -->
-  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Street‑Connect Mzansi — Feed</title>
+  <script src="https://cdn.tailwindcss.com"></script>
   <style>
-    body {
-      background-color: #f5f5f5;
-    }
-    .card {
-      border-radius: 10px;
-      box-shadow: 0 0 8px rgba(0,0,0,0.1);
-    }
-    .card-title {
-      font-weight: bold;
-    }
-    .timestamp {
-      font-size: 0.85rem;
-      color: #888;
-    }
+    .skeleton { animation: pulse 1.5s infinite; background-color: #e2e8f0; height: 16rem; border-radius: 1rem; }
+    @keyframes pulse { 0%,100%{opacity:1}50%{opacity:0.4} }
+    .modal-bg { background: rgba(0,0,0,0.6); }
+    .ripple { transition: transform .2s, opacity .2s; }
+    .ripple:active { transform: scale(0.95); opacity: 0.7; }
   </style>
 </head>
-<body>
-  <div class="container py-4">
-    <h2 class="mb-4 text-center">📰 Street Connect Mzansi — Feed</h2>
-    <div id="feed" class="feed-list">
-      <div class="text-center text-muted">Loading feed...</div>
+<body class="bg-gray-100 min-h-screen flex flex-col">
+
+  <header class="p-4 bg-white shadow flex justify-between items-center">
+    <h1 class="text-xl font-bold">Street‑Connect Mzansi</h1>
+    <nav class="flex gap-4">
+      <button id="exploreBtn" class="ripple text-blue-600">🔍 Explore</button>
+      <button id="dashboardBtn" class="ripple text-blue-600">📊 Dashboard</button>
+      <button id="notificationsBtn" class="ripple text-blue-600">🔔 Notifications</button>
+      <button id="settingsBtn" class="ripple text-blue-600">⚙️ Settings</button>
+    </nav>
+  </header>
+
+  <section class="p-4 max-w-4xl mx-auto flex-grow flex flex-col">
+    <div id="postsContainer" class="flex flex-col gap-6">
+      <div class="skeleton"></div>
+      <div class="skeleton"></div>
+      <div class="skeleton"></div>
     </div>
+  </section>
+
+  <!-- Image Modal -->
+  <div id="imgModal" class="fixed inset-0 hidden justify-center items-center modal-bg">
+    <img id="imgModalContent" class="max-h-[90vh] max-w-[90vw] rounded" />
   </div>
 
-  <!-- Firebase Modular SDK Setup -->
+  <!-- Firebase + App Logic -->
   <script type="module">
-    // Import Firebase modules
-    import { initializeApp } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-app.js";
-    import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-auth.js";
-    import { getFirestore, collection, getDocs, query, orderBy } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore.js";
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+    import {
+      getFirestore, collection, query, orderBy,
+      onSnapshot, doc, getDoc, setDoc, addDoc,
+      serverTimestamp
+    } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+    import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 
-    // Firebase configuration
-    const firebaseConfig = {
-      apiKey: "AIzaSyDEsYzVYNvSsKvgFk5cSa_7lWWdJtDc1gs",
-      authDomain: "online-mall-4422.firebaseapp.com",
-      databaseURL: "https://online-mall-4422-default-rtdb.firebaseio.com",
-      projectId: "online-mall-4422",
-      storageBucket: "online-mall-4422.appspot.com",
-      messagingSenderId: "947082232783",
-      appId: "1:947082232783:web:116206502e5fb38383c8ba",
-      measurementId: "G-LNTNZQBGL8"
-    };
+    const app = initializeApp({
+      apiKey: "...", authDomain: "...", projectId: "online-mall-4422",
+      storageBucket: "...", messagingSenderId: "...", appId: "...", measurementId: "..."
+    });
+    const db = getFirestore(app), auth = getAuth(app);
 
-    // Initialize Firebase
-    const app = initializeApp(firebaseConfig);
-    const auth = getAuth(app);
-    const db = getFirestore(app);
+    const postsContainer = document.getElementById('postsContainer');
+    const imgModal = document.getElementById('imgModal');
+    const imgModalContent = document.getElementById('imgModalContent');
 
-    const feedContainer = document.getElementById("feed");
+    let currentUser = null, lastDoc = null, canFetch = true;
 
-    // Load posts from Firestore
-    async function loadFeed() {
-      try {
-        const postsRef = collection(db, "posts");
-        const q = query(postsRef, orderBy("timestamp", "desc"));
-        const snapshot = await getDocs(q);
+    onAuthStateChanged(auth, user => {
+      if (!user) return window.location.href = "login.html";
+      currentUser = user;
+      setupNav();
+      loadInitialPosts();
+    });
 
-        if (snapshot.empty) {
-          feedContainer.innerHTML = `<div class="alert alert-info text-center">No posts found.</div>`;
-          return;
-        }
-
-        feedContainer.innerHTML = ""; // Clear loader
-
-        snapshot.forEach(doc => {
-          const post = doc.data();
-          const timestamp = post.timestamp?.toDate();
-          const timeStr = timestamp ? new Date(timestamp).toLocaleString() : "Unknown time";
-
-          const postEl = document.createElement("div");
-          postEl.className = "card mb-3";
-          postEl.innerHTML = `
-            <div class="card-body">
-              <h5 class="card-title">${post.title || "Untitled"}</h5>
-              <p class="card-text">${post.content || ""}</p>
-              <div class="timestamp">${timeStr}</div>
-            </div>
-          `;
-          feedContainer.appendChild(postEl);
-        });
-      } catch (error) {
-        console.error("Error loading posts:", error);
-        feedContainer.innerHTML = `<div class="alert alert-danger">Error loading posts: ${error.message}</div>`;
-      }
+    function setupNav(){
+      document.getElementById('exploreBtn').onclick = ()=>window.location.reload();
+      document.getElementById('dashboardBtn').onclick = ()=>window.location.href='dashboard.html';
+      document.getElementById('notificationsBtn').onclick = ()=>window.location.href='notifications.html';
+      document.getElementById('settingsBtn').onclick = ()=>window.location.href='settings.html';
     }
 
-    // Check if user is logged in
-    onAuthStateChanged(auth, user => {
-      if (user) {
-        loadFeed();
-      } else {
-        feedContainer.innerHTML = `<div class="alert alert-warning text-center">Please log in to view the feed.</div>`;
+    function createPostCard(docSnap){
+      const p = docSnap.data(), pid = docSnap.id;
+      const card = document.createElement('div');
+      card.className = 'bg-white p-4 rounded-xl shadow ripple transition-opacity';
+      card.innerHTML = `
+        <div class="flex items-center justify-between">
+          <div class="flex items-center gap-3">
+            <img src="${p.profilePhotoURL || 'https://via.placeholder.com/48'}" class="w-10 h-10 rounded-full object-cover cursor-pointer" id="profile-${pid}"/>
+            <div>
+              <div class="font-semibold text-gray-800 cursor-pointer" id="name-${pid}">${p.businessName}</div>
+              <div class="text-xs text-gray-500">${p.createdAt.toDate().toLocaleString()}</div>
+            </div>
+          </div>
+          <div class="relative">
+            <button class="overflow-btn text-gray-600">⋮</button>
+            <div class="overflow-menu hidden absolute bg-white border rounded shadow py-1">
+              <div class="px-4 py-2 hover:bg-gray-100 save-post">Save Post</div>
+              <div class="px-4 py-2 hover:bg-gray-100 view-vendor">View Vendor</div>
+            </div>
+          </div>
+        </div>
+
+        <h2 class="mt-2 font-bold">${p.title}</h2>
+        <p class="mt-1 text-gray-600">${p.description}</p>
+        ${p.imageURL ? `<img src="${p.imageURL}" class="mt-2 rounded-lg cursor-pointer" id="img-${pid}"/>` : ''}
+
+        <div class="mt-2 flex gap-4">
+          <button class="like-btn">${p.likes} ❤️ Like</button>
+          <button class="follow-btn">${p.isFollowing ? 'Unfollow' : 'Follow'}</button>
+        </div>
+
+        <div class="mt-2">
+          <form class="comment-form">
+            <input type="text" placeholder="Comment..." class="w-full border rounded p-2"/>
+          </form>
+        </div>
+      `;
+
+      // events
+      card.querySelector(`#name-${pid}`).onclick = ()=>window.location.href = `chat.html?vendor=${p.uid}`;
+      card.querySelector(`#profile-${pid}`).onclick = ()=>window.location.href = `chat.html?vendor=${p.uid}`;
+      card.querySelector(`#img-${pid}`)?.onclick = ()=>{
+        imgModalContent.src = p.imageURL;
+        imgModal.classList.remove('hidden');
+      };
+      imgModal.onclick = ()=>imgModal.classList.add('hidden');
+
+      const overflowBtn = card.querySelector('.overflow-btn');
+      const overflowMenu = card.querySelector('.overflow-menu');
+      overflowBtn.onclick = ()=>overflowMenu.classList.toggle('hidden');
+      overflowMenu.querySelector('.view-vendor').onclick = ()=>{
+        window.location.href = `vendor-view.html?vendor=${p.uid}`;
+      };
+
+      card.querySelector('.like-btn').onclick = async ()=>{
+        await setDoc(doc(db, 'likes', `${currentUser.uid}_${pid}`), {uid: currentUser.uid, postId: pid, timestamp: serverTimestamp()});
+      };
+      card.querySelector('.follow-btn').onclick = async e=>{
+        const fid = `${currentUser.uid}_${p.uid}`;
+        const flRef = doc(db,'follows',fid);
+        const flDoc = await getDoc(flRef);
+        if(flDoc.exists()) await flRef.delete();
+        else await setDoc(flRef,{uid: currentUser.uid, vendorId: p.uid, timestamp: serverTimestamp()});
+        e.target.textContent = flDoc.exists()? 'Follow':'Unfollow';
+      };
+
+      const cform = card.querySelector('.comment-form');
+      cform.onsubmit = async e=>{
+        e.preventDefault();
+        const txt = e.target[0].value.trim();
+        if(!txt) return;
+        await addDoc(collection(db,'posts',pid,'comments'), {uid: currentUser.uid, text:txt, timestamp:serverTimestamp()});
+        e.target.reset();
+      };
+
+      return card;
+    }
+
+    function loadInitialPosts(){
+      const q = query(collection(db,'posts'), orderBy('createdAt','desc'), limit(5));
+      onSnapshot(q, snap=>{
+        postsContainer.innerHTML = '';
+        snap.forEach(d=> postsContainer.appendChild(createPostCard(d)));
+        lastDoc = snap.docs[snap.docs.length-1];
+      });
+    }
+
+    window.addEventListener('scroll', ()=>{
+      if(!canFetch) return;
+      if(window.innerHeight + window.scrollY >= document.body.offsetHeight - 200){
+        canFetch = false;
+        const q2 = query(collection(db,'posts'), orderBy('createdAt','desc'), startAfter(lastDoc), limit(5));
+        onSnapshot(q2, snap=>{
+          snap.forEach(d=> postsContainer.appendChild(createPostCard(d)));
+          if(snap.docs.length) lastDoc = snap.docs[snap.docs.length-1];
+          canFetch = true;
+        });
       }
     });
   </script>
 </body>
 </html>
-
