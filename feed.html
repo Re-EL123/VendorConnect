@@ -6,39 +6,49 @@
   <title>Street‑Connect Mzansi — Feed</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <style>
-    .skeleton { animation: pulse 1.5s infinite; background-color: #e2e8f0; height: 16rem; border-radius: 1rem; }
-    @keyframes pulse { 0%,100%{opacity:1}50%{opacity:0.4} }
-    .modal-bg { background: rgba(0,0,0,0.6); }
-    .ripple { transition: transform .2s, opacity .2s; }
-    .ripple:active { transform: scale(0.95); opacity: 0.7; }
+    .skeleton {
+      animation: pulse 1.5s infinite;
+      background-color: #e2e8f0;
+      height: 16rem;
+      border-radius: 1rem;
+    }
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.4; }
+    }
+    .modal-bg { background: rgba(0, 0, 0, 0.6); }
+    .ripple {
+      transition: transform 0.2s, opacity 0.2s;
+    }
+    .ripple:active {
+      transform: scale(0.95);
+      opacity: 0.7;
+    }
   </style>
 </head>
-<body class="bg-gray-100 min-h-screen flex flex-col">
+<body class="bg-gray-100 min-h-screen flex flex-col font-sans">
 
-  <header class="p-4 bg-white shadow flex justify-between items-center">
-    <h1 class="text-xl font-bold">Street‑Connect Mzansi</h1>
-    <nav class="flex gap-4">
-      <button id="exploreBtn" class="ripple text-blue-600">🔍 Explore</button>
-      <button id="dashboardBtn" class="ripple text-blue-600">📊 Dashboard</button>
-      <button id="notificationsBtn" class="ripple text-blue-600">🔔 Notifications</button>
-      <button id="settingsBtn" class="ripple text-blue-600">⚙️ Settings</button>
+  <header class="p-4 bg-white shadow-md sticky top-0 z-40 flex justify-between items-center">
+    <h1 class="text-xl font-bold text-blue-700">Street‑Connect Mzansi</h1>
+    <nav class="flex gap-3 text-sm">
+      <button id="exploreBtn" class="ripple text-blue-600 hover:underline">🔍 Explore</button>
+      <button id="dashboardBtn" class="ripple text-blue-600 hover:underline">📊 Dashboard</button>
+      <button id="notificationsBtn" class="ripple text-blue-600 hover:underline">🔔 Notifications</button>
+      <button id="settingsBtn" class="ripple text-blue-600 hover:underline">⚙️ Settings</button>
     </nav>
   </header>
 
-  <section class="p-4 max-w-4xl mx-auto flex-grow flex flex-col">
-    <div id="postsContainer" class="flex flex-col gap-6">
-      <div class="skeleton"></div>
-      <div class="skeleton"></div>
-      <div class="skeleton"></div>
-    </div>
-  </section>
+  <main class="p-4 max-w-4xl mx-auto flex-grow flex flex-col space-y-6" id="postsContainer">
+    <div class="skeleton"></div>
+    <div class="skeleton"></div>
+    <div class="skeleton"></div>
+  </main>
 
   <!-- Image Modal -->
   <div id="imgModal" class="fixed inset-0 hidden justify-center items-center modal-bg z-50">
-    <img id="imgModalContent" class="max-h-[90vh] max-w-[90vw] rounded" />
+    <img id="imgModalContent" class="max-h-[90vh] max-w-[90vw] rounded-xl shadow-xl" />
   </div>
 
-  <!-- Firebase & Post Logic -->
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
     import {
@@ -89,6 +99,10 @@
       const q = query(collection(db, 'posts'), orderBy('createdAt', 'desc'), limit(5));
       onSnapshot(q, snap => {
         postsContainer.innerHTML = '';
+        if (snap.empty) {
+          postsContainer.innerHTML = '<p class="text-center text-gray-500">No posts yet.</p>';
+          return;
+        }
         snap.forEach(doc => {
           const card = createPostCard(doc, db, currentUser, imgModal, imgModalContent);
           postsContainer.appendChild(card);
@@ -99,10 +113,11 @@
 
     window.addEventListener('scroll', () => {
       if (!canFetch || !lastDoc) return;
-      if (window.innerHeight + window.scrollY >= document.body.offsetHeight - 200) {
+      if (window.innerHeight + window.scrollY >= document.body.offsetHeight - 300) {
         canFetch = false;
         const q2 = query(collection(db, 'posts'), orderBy('createdAt', 'desc'), startAfter(lastDoc), limit(5));
         onSnapshot(q2, snap => {
+          if (snap.empty) return;
           snap.forEach(doc => {
             const card = createPostCard(doc, db, currentUser, imgModal, imgModalContent);
             postsContainer.appendChild(card);
