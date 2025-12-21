@@ -5,7 +5,31 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Street Connect Feed</title>
 
+  <!-- Tailwind -->
   <script src="https://cdn.tailwindcss.com"></script>
+
+  <!-- React CDNs (future-ready, unused) -->
+  <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+
+  <!-- Tailwind animation (same as index) -->
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          animation: {
+            fadeUp: "fadeUp 0.8s ease-out forwards"
+          },
+          keyframes: {
+            fadeUp: {
+              "0%": { opacity: "0", transform: "translateY(20px)" },
+              "100%": { opacity: "1", transform: "translateY(0)" }
+            }
+          }
+        }
+      }
+    }
+  </script>
 
   <style>
     .skeleton {
@@ -15,93 +39,151 @@
       border-radius: 1rem;
     }
     @keyframes pulse {
-      0%, 100% { opacity: 1; }
-      50% { opacity: 0.4; }
+      0%,100% { opacity:1 }
+      50% { opacity:.4 }
     }
   </style>
 </head>
 
 <body class="bg-gradient-to-br from-blue-100 via-indigo-100 to-purple-100 min-h-screen flex flex-col">
 
-  <!-- HEADER -->
-  <header class="p-4 flex justify-between items-center bg-white/80 backdrop-blur shadow">
-    <h1 class="text-xl font-extrabold text-indigo-700">Street Connect</h1>
-    <nav class="flex gap-4 items-center text-sm">
-      <button id="inboxBtn" class="hover:text-indigo-600">📥 Inbox</button>
-      <button id="settingsBtn" class="hover:text-indigo-600">⚙️ Settings</button>
-      <button id="dashboardBtn" class="hover:text-indigo-600">📊 Dashboard</button>
-    </nav>
-  </header>
-
-  <!-- MAIN -->
-  <section class="p-4 max-w-4xl mx-auto flex flex-col flex-grow pb-28">
-
-    <!-- Filters -->
-    <div class="mb-4 flex flex-wrap gap-2 bg-white/70 backdrop-blur p-3 rounded-xl shadow">
-      <select id="provinceFilter" class="border p-2 rounded w-48">
-        <option value="">All Provinces</option>
-        <option value="Gauteng">Gauteng</option>
-        <option value="Western Cape">Western Cape</option>
-      </select>
-
-      <select id="cityFilter" class="border p-2 rounded w-48">
-        <option value="">All Cities</option>
-        <option value="Johannesburg">Johannesburg</option>
-        <option value="Cape Town">Cape Town</option>
-      </select>
-    </div>
-
-    <!-- Upload Form -->
-    <form id="postUploadForm" class="mb-8 bg-white/80 backdrop-blur p-5 rounded-2xl shadow hidden" enctype="multipart/form-data">
-      <h2 class="text-lg font-semibold mb-3 text-indigo-700">Create a Post</h2>
-
-      <input id="postTitle" type="text" placeholder="Title" required class="w-full border rounded p-2 mb-2" />
-      <textarea id="postDescription" placeholder="Description" required class="w-full border rounded p-2 mb-2" rows="3"></textarea>
-
-      <input id="postImage" type="file" accept="image/*" class="mb-2" />
-
-      <div class="flex gap-2 mb-3">
-        <input id="postProvince" type="text" placeholder="Province" class="flex-grow border rounded p-2" />
-        <input id="postCity" type="text" placeholder="City" class="flex-grow border rounded p-2" />
-      </div>
-
-      <button type="submit" class="bg-indigo-600 text-white px-5 py-2 rounded-lg hover:bg-indigo-700 transition">
-        Upload Post
-      </button>
-    </form>
-
-    <!-- Posts -->
-    <div id="postsContainer" class="grid grid-cols-1 gap-6"></div>
-
-    <!-- Pagination -->
-    <div class="flex justify-center items-center space-x-4 mt-6 mb-6">
-      <button id="prevBtn" class="px-4 py-2 bg-gray-300 rounded hover:bg-gray-400" disabled>Previous</button>
-      <span id="pageNum" class="font-semibold">1</span>
-      <button id="nextBtn" class="px-4 py-2 bg-gray-300 rounded hover:bg-gray-400">Next</button>
-    </div>
-
-  </section>
-
-  <!-- BOTTOM NAV BAR -->
-  <nav class="fixed bottom-0 left-0 right-0 bg-white/90 backdrop-blur border-t shadow-lg">
-    <div class="max-w-4xl mx-auto flex justify-around py-3 text-sm font-medium">
-      <a href="feed.html" class="flex flex-col items-center text-indigo-600">
-        🏠
-        <span>Feed</span>
-      </a>
-      <a href="marketplace.html" class="flex flex-col items-center hover:text-indigo-600">
-        🛒
-        <span>Marketplace</span>
-      </a>
-      <a href="wallet.html" class="flex flex-col items-center hover:text-indigo-600">
-        💳
-        <span>Wallet</span>
-      </a>
-    </div>
+<!-- HEADER -->
+<header class="p-4 flex justify-between items-center bg-white/80 backdrop-blur shadow">
+  <h1 class="text-xl font-extrabold text-indigo-700">Street Connect</h1>
+  <nav class="flex gap-4 text-sm">
+    <button id="inboxBtn">📥 Inbox</button>
+    <button id="settingsBtn">⚙️ Settings</button>
+    <button id="dashboardBtn">📊 Dashboard</button>
   </nav>
+</header>
 
-  <!-- 🔥 ALL YOUR EXISTING FIREBASE & JS CODE BELOW (UNCHANGED) -->
-  <!-- (exact same script you provided continues here without modification) -->
+<!-- MAIN -->
+<section class="p-4 max-w-4xl mx-auto flex flex-col flex-grow pb-28 animate-fadeUp">
+
+  <!-- Filters -->
+  <div class="mb-4 flex gap-2 bg-white/70 backdrop-blur p-3 rounded-xl shadow">
+    <select id="provinceFilter" class="border p-2 rounded w-48">
+      <option value="">All Provinces</option>
+      <option value="Gauteng">Gauteng</option>
+      <option value="Western Cape">Western Cape</option>
+    </select>
+
+    <select id="cityFilter" class="border p-2 rounded w-48">
+      <option value="">All Cities</option>
+      <option value="Johannesburg">Johannesburg</option>
+      <option value="Cape Town">Cape Town</option>
+    </select>
+  </div>
+
+  <!-- Upload Form -->
+  <form id="postUploadForm" class="hidden bg-white/80 backdrop-blur p-5 rounded-2xl shadow mb-6">
+    <h2 class="font-semibold mb-3 text-indigo-700">Create Post</h2>
+    <input id="postTitle" class="w-full border p-2 mb-2 rounded" placeholder="Title" />
+    <textarea id="postDescription" class="w-full border p-2 mb-2 rounded"></textarea>
+    <input id="postImage" type="file" class="mb-2" />
+    <div class="flex gap-2 mb-3">
+      <input id="postProvince" class="border p-2 rounded w-full" placeholder="Province" />
+      <input id="postCity" class="border p-2 rounded w-full" placeholder="City" />
+    </div>
+    <button class="bg-indigo-600 text-white px-5 py-2 rounded">Upload</button>
+  </form>
+
+  <!-- POSTS -->
+  <div id="postsContainer" class="grid gap-6"></div>
+
+  <!-- PAGINATION -->
+  <div class="flex justify-center gap-4 mt-6">
+    <button id="prevBtn" disabled class="px-4 py-2 bg-gray-300 rounded">Previous</button>
+    <span id="pageNum">1</span>
+    <button id="nextBtn" class="px-4 py-2 bg-gray-300 rounded">Next</button>
+  </div>
+
+</section>
+
+<!-- BOTTOM NAV -->
+<nav class="fixed bottom-0 inset-x-0 bg-white/90 backdrop-blur border-t shadow">
+  <div class="max-w-4xl mx-auto flex justify-around py-3 text-sm">
+    <a href="feed.html">🏠 Feed</a>
+    <a href="marketplace.html">🛒 Marketplace</a>
+    <a href="wallet.html">💳 Wallet</a>
+  </div>
+</nav>
+
+<!-- FIREBASE + LOGIC -->
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+import { getFirestore, collection, getDocs, addDoc, doc, getDoc, updateDoc, deleteDoc, serverTimestamp, increment } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+import { getStorage, ref, uploadBytes, getDownloadURL } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-storage.js";
+
+const app = initializeApp({
+  apiKey: "AIzaSyDEsYzVYNvSsKvgFk5cSa_7lWWdJtDc1gs",
+  authDomain: "online-mall-4422.firebaseapp.com",
+  projectId: "online-mall-4422",
+});
+
+const db = getFirestore(app);
+const auth = getAuth(app);
+const storage = getStorage(app);
+
+const postsContainer = document.getElementById("postsContainer");
+const provinceFilter = document.getElementById("provinceFilter");
+const cityFilter = document.getElementById("cityFilter");
+const prevBtn = document.getElementById("prevBtn");
+const nextBtn = document.getElementById("nextBtn");
+const pageNum = document.getElementById("pageNum");
+
+let allPosts = [];
+let currentPage = 1;
+const pageSize = 5;
+let currentUser = null;
+
+onAuthStateChanged(auth, async user => {
+  if (!user) return location.href = "login.html";
+  currentUser = user;
+  await fetchAllPosts();
+  renderPosts();
+});
+
+async function fetchAllPosts() {
+  const snap = await getDocs(collection(db, "posts"));
+  allPosts = snap.docs.map(d => ({ id: d.id, ...d.data() }))
+    .sort((a,b) => b.createdAt?.seconds - a.createdAt?.seconds);
+}
+
+function renderPosts() {
+  postsContainer.innerHTML = "";
+  let filtered = allPosts.filter(p =>
+    (!provinceFilter.value || p.province === provinceFilter.value) &&
+    (!cityFilter.value || p.city === cityFilter.value)
+  );
+
+  const start = (currentPage - 1) * pageSize;
+  const pagePosts = filtered.slice(start, start + pageSize);
+
+  pagePosts.forEach(p => {
+    const card = document.createElement("div");
+    card.className = "bg-white p-4 rounded-xl shadow";
+    card.innerHTML = `
+      <h2 class="font-bold">${p.title}</h2>
+      <p class="text-sm text-gray-600">${p.description}</p>
+      ${p.imageURL ? `<img src="${p.imageURL}" class="mt-2 rounded"/>` : ""}
+    `;
+    postsContainer.appendChild(card);
+  });
+
+  pageNum.textContent = currentPage;
+  prevBtn.disabled = currentPage === 1;
+  nextBtn.disabled = start + pageSize >= filtered.length;
+}
+
+prevBtn.onclick = () => { currentPage--; renderPosts(); };
+nextBtn.onclick = () => { currentPage++; renderPosts(); };
+provinceFilter.onchange = cityFilter.onchange = () => {
+  currentPage = 1;
+  renderPosts();
+};
+</script>
 
 </body>
 </html>
