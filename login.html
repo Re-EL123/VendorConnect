@@ -3,38 +3,89 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Login – Street Link</title>
+  <title>Login – Street Connect</title>
+
+  <!-- Tailwind CSS -->
   <script src="https://cdn.tailwindcss.com"></script>
+
+  <!-- React (CDN – future ready, non-intrusive) -->
+  <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+
+  <!-- Tailwind Config (same as index) -->
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          animation: {
+            fadeUp: "fadeUp 0.9s ease-out forwards"
+          },
+          keyframes: {
+            fadeUp: {
+              "0%": { opacity: "0", transform: "translateY(30px)" },
+              "100%": { opacity: "1", transform: "translateY(0)" }
+            }
+          }
+        }
+      }
+    }
+  </script>
 </head>
-<body class="bg-gray-100 flex items-center justify-center h-screen">
-  <div class="bg-white shadow-lg rounded-lg p-8 w-full max-w-md">
-    <h2 class="text-2xl font-bold mb-4 text-center">Login to Street Link</h2>
 
-    <input type="email" id="email" placeholder="Email" class="w-full px-4 py-2 border rounded mb-4" />
-    <input type="password" id="password" placeholder="Password" class="w-full px-4 py-2 border rounded mb-4" />
+<body class="bg-gradient-to-br from-blue-500 via-indigo-600 to-purple-700 min-h-screen flex items-center justify-center px-4">
 
-    <div class="flex items-center justify-between mb-4">
-      <label class="flex items-center text-sm">
-        <input type="checkbox" id="remember" class="mr-2" />
-        Remember Me
-      </label>
-      <button onclick="forgotPassword()" class="text-blue-600 text-sm hover:underline">
-        Forgot Password?
+  <div class="w-full max-w-md animate-fadeUp">
+    <div class="bg-white/90 backdrop-blur-xl shadow-2xl rounded-2xl p-8">
+
+      <h2 class="text-3xl font-extrabold mb-6 text-center text-indigo-700">
+        Street <span class="text-indigo-500">Connect</span>
+      </h2>
+
+      <input
+        type="email"
+        id="email"
+        placeholder="Email"
+        class="w-full px-4 py-3 border rounded-lg mb-4 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+      />
+
+      <input
+        type="password"
+        id="password"
+        placeholder="Password"
+        class="w-full px-4 py-3 border rounded-lg mb-4 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+      />
+
+      <div class="flex items-center justify-between mb-5 text-sm">
+        <label class="flex items-center">
+          <input type="checkbox" id="remember" class="mr-2 rounded" />
+          Remember Me
+        </label>
+        <button onclick="forgotPassword()" class="text-indigo-600 hover:underline">
+          Forgot Password?
+        </button>
+      </div>
+
+      <button
+        onclick="login()"
+        class="bg-indigo-600 hover:bg-indigo-700 transition text-white w-full py-3 rounded-xl font-semibold mb-4 shadow"
+      >
+        Login
       </button>
+
+      <button
+        onclick="window.location.href='register.html'"
+        class="w-full text-sm text-gray-700 hover:underline text-center"
+      >
+        Don’t have an account? Register
+      </button>
+
+      <p id="error" class="text-red-600 text-sm mt-4 text-center hidden"></p>
+      <p id="success" class="text-green-600 text-sm mt-2 text-center hidden"></p>
+
     </div>
-
-    <button onclick="login()" class="bg-blue-600 hover:bg-blue-700 text-white w-full py-2 rounded mb-4">
-      Login
-    </button>
-
-    <button onclick="window.location.href='register.html'" class="text-center w-full text-sm text-gray-700 hover:underline">
-      Don't have an account? Register
-    </button>
-
-    <p id="error" class="text-red-600 text-sm mt-4 text-center hidden"></p>
-    <p id="success" class="text-green-600 text-sm mt-2 text-center hidden"></p>
   </div>
 
+  <!-- 🔥 ALL LOGIC BELOW IS 100% UNCHANGED -->
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
     import {
@@ -69,9 +120,7 @@
       const persistence = remember ? browserLocalPersistence : browserSessionPersistence;
 
       setPersistence(auth, persistence)
-        .then(() => {
-          return signInWithEmailAndPassword(auth, email, password);
-        })
+        .then(() => signInWithEmailAndPassword(auth, email, password))
         .then(() => {
           window.location.href = "feed.html";
         })
@@ -79,7 +128,7 @@
           errorEl.textContent = "Login failed: " + error.message;
           errorEl.classList.remove("hidden");
         });
-    }
+    };
 
     window.forgotPassword = function () {
       const email = document.getElementById("email").value.trim();
@@ -104,7 +153,8 @@
           errorEl.classList.remove("hidden");
           successEl.classList.add("hidden");
         });
-    }
+    };
   </script>
+
 </body>
 </html>
