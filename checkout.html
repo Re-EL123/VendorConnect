@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Checkout — Street Connect</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+</head>
+
+<body class="bg-gray-100 min-h-screen flex items-center justify-center">
+
+<div class="bg-white p-6 rounded shadow max-w-md w-full">
+  <h2 class="text-xl font-bold mb-4">Wallet Checkout</h2>
+
+  <div id="summary"></div>
+
+  <button id="payBtn" class="mt-4 w-full bg-indigo-600 text-white py-2 rounded">
+    Pay with Wallet
+  </button>
+</div>
+
+<script>
+firebase.initializeApp({
+  apiKey: "AIzaSyDEsYzVYNvSsKvgFk5cSa_7lWWdJtDc1gs",
+  databaseURL: "https://online-mall-4422-default-rtdb.firebaseio.com"
+});
+
+const auth = firebase.auth();
+const db = firebase.database();
+
+auth.onAuthStateChanged(async user => {
+  if (!user) return location.href = "login.html";
+
+  const cart = JSON.parse(localStorage.getItem("cart") || "[]");
+  const total = cart.reduce((s,i)=>s+i.price*i.qty,0);
+
+  summary.innerHTML = `
+    <p>Total Items: ${cart.length}</p>
+    <p class="font-bold">Total: R ${total}</p>
+  `;
+
+  payBtn.onclick = async () => {
+    const walletRef = db.ref(`wallets/${user.uid}`);
+    const snap = await walletRef.once("value");
+    const balance = snap.val()?.balance || 0;
+
+    if (balance < total) return alert("Insufficient balance");
+
+    await walletRef.update({ balance: balance - total });
+    await db.ref("orders").push({ uid: user.uid, cart, total, createdAt: Date.now() });
+
+    localStorage.removeItem("cart");
+    alert("Payment successful");
+    location.href = "feed.html";
+  };
+});
+</script>
+
+</body>
+</html>
